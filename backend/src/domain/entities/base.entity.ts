@@ -10,4 +10,7 @@ export class BaseEntity {
         this.createdAt = new Date;
     }
 
+    public getId() {
+        return this.id
+    }
 }

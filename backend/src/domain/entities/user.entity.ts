@@ -1,8 +1,9 @@
-import type { UserRoleEnum } from "../enums/UserRoleEnum.js";
-import { BaseEntity } from "./BaseEntity.js";
+import type { UserRoleEnum } from "../enums/userRole.enum.js";
+import { BaseEntity } from "./base.entity.js";
 
 
 type Props = {
+    id?: string;
     userEmail: string;
     userName: string;
     password: string;
@@ -26,6 +27,10 @@ export class UserEntity extends BaseEntity {
         return this.userRole
     }
 
+    public getPassword() {
+        return this.password
+    }
+
     public setEmail(value: string) {
         this.userEmail = value
     }
@@ -41,8 +46,8 @@ export class UserEntity extends BaseEntity {
     public setPassword(value: string) {
         this.password = value
     }
-    constructor({ password, userEmail, userName, userRole }: Props) {
-        super()
+    constructor({ id, password, userEmail, userName, userRole }: Props) {
+        super(id)
 
         this.setEmail(userEmail)
         this.setUserName(userName)

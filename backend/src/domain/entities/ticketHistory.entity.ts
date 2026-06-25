@@ -1,7 +1,8 @@
-import type { TicketHistoryActionEnum } from "../enums/TicketHistoryActionEnum.js";
-import { BaseEntity } from "./BaseEntity.js";
+import type { TicketHistoryActionEnum } from "../enums/ticketHistoryAction.enum.js";
+import { BaseEntity } from "./base.entity.js";
 
 type Props = {
+    id?: string;
     ticketId: string;
     action: TicketHistoryActionEnum;
     changedByUserId: string;
@@ -66,8 +67,8 @@ export class TicketHistoryEntity extends BaseEntity {
         this.comment = value
     }
 
-    constructor({ action, changedByUserId, comment = null, newValue = null, previousValue = null, ticketId }: Props) {
-        super()
+    constructor({ action, changedByUserId, comment = null, id, newValue = null, previousValue = null, ticketId }: Props) {
+        super(id)
 
         this.setTicketId(ticketId)
         this.setAction(action)

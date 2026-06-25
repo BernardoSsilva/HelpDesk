@@ -1,8 +1,9 @@
-import type { TicketPriorityEnum } from "../enums/TicketPriorityEnum.js";
-import { TicketStatusEnum } from "../enums/TicketStatusEnum.js";
-import { BaseEntity } from "./BaseEntity.js";
+import type { TicketPriorityEnum } from "../enums/ticketPriority.enum.js";
+import { TicketStatusEnum } from "../enums/ticketStatus.enum.js";
+import { BaseEntity } from "./base.entity.js";
 
 type Props = {
+    id?: string;
     title: string;
     description: string;
     requesterId: string;
@@ -11,7 +12,7 @@ type Props = {
     responsibleId?: string | null;
 }
 
-type UpdateProps = Partial<Omit<Props, "requesterId">>
+type UpdateProps = Partial<Omit<Props, "id" | "requesterId">>
 
 export class TicketEntity extends BaseEntity {
     private title!: string;
@@ -69,8 +70,8 @@ export class TicketEntity extends BaseEntity {
         this.responsibleId = value
     }
 
-    constructor({ description, priority, requesterId, responsibleId = null, status = TicketStatusEnum.ABERTO, title }: Props) {
-        super()
+    constructor({ description, id, priority, requesterId, responsibleId = null, status = TicketStatusEnum.ABERTO, title }: Props) {
+        super(id)
 
         this.setTitle(title)
         this.setDescription(description)
