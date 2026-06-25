@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRoleEnum {
+  ADMIN
+  USER
+}
+
+enum TicketStatusEnum {
+  ABERTO
+  EM_ANDAMENTO
+  AGUARDANDO
+  RESOLVIDO
+  FECHADO
+}
+
+enum TicketPriorityEnum {
+  BAIXA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum TicketHistoryActionEnum {
+  TICKET_CRIADO
+  STATUS_ALTERADO
+  RESPONSAVEL_ALTERADO
+  TITULO_ALTERADO
+  DESCRICAO_ALTERADA
+  PRIORIDADE_ALTERADA
+  COMENTARIO_ADICIONADO
+}
+
+model User {
+  id        String       @id @default(uuid()) @db.Uuid
+  email     String       @unique @map("email")
+  name      String       @map("name")
+  password  String       @map("password")
+  role      UserRoleEnum @default(USER) @map("role")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  requestedTickets Ticket[]        @relation("TicketRequester")
+  assignedTickets  Ticket[]        @relation("TicketResponsible")
+  historyEntries   TicketHistory[] @relation("HistoryChangedBy")
+
+  @@map("users")
+}
+
+model Ticket {
+  id            String             @id @default(uuid()) @db.Uuid
+  title         String             @map("title")
+  description   String             @map("description")
+  status        TicketStatusEnum   @default(ABERTO) @map("status")
+  priority      TicketPriorityEnum @map("priority")
+  requesterId   String             @map("requester_id") @db.Uuid
+  responsibleId String?            @map("responsible_id") @db.Uuid
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  requester   User            @relation("TicketRequester", fields: [requesterId], references: [id])
+  responsible User?           @relation("TicketResponsible", fields: [responsibleId], references: [id])
+  history     TicketHistory[]
+
+  @@index([requesterId])
+  @@index([responsibleId])
+  @@index([status])
+  @@index([priority])
+  @@map("tickets")
+}
+
+model TicketHistory {
+  id              String                  @id @default(uuid()) @db.Uuid
+  ticketId        String                  @map("ticket_id") @db.Uuid
+  action          TicketHistoryActionEnum @map("action")
+  changedByUserId String                  @map("changed_by_user_id") @db.Uuid
+  previousValue   String?                 @map("previous_value")
+  newValue        String?                 @map("new_value")
+  comment         String?                 @map("comment")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+
+  ticket        Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  changedByUser User   @relation("HistoryChangedBy", fields: [changedByUserId], references: [id])
+
+  @@index([ticketId])
+  @@index([changedByUserId])
+  @@index([action])
+  @@map("ticket_history")
+}
