@@ -1,0 +1,7 @@
+export enum TicketStatusEnum {
+    ABERTO = "ABERTO",
+    EM_ANDAMENTO = "EM_ANDAMENTO",
+    AGUARDANDO = "AGUARDANDO",
+    RESOLVIDO = "RESOLVIDO",
+    FECHADO = "FECHADO"
+}
