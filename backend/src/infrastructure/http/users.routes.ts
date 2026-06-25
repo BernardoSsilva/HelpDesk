@@ -1,0 +1,101 @@
+import { Router } from "express";
+import { UserRoleEnum } from "../../domain/enums/userRole.enum.js";
+import {
+    AuthenticateUserUseCase,
+    CreateUserUseCase,
+    DeleteUserUseCase,
+    UpdateUserUseCase,
+} from "../usecases/users/index.js";
+import { authMiddleware } from "./auth.middleware.js";
+import { signJwt } from "./jwt.js";
+
+const usersRoutes = Router()
+
+function sanitizeUser<T extends { password?: string }>(user: T) {
+    const { password, ...safeUser } = user
+    return safeUser
+}
+
+usersRoutes.post("/auth", async (req, res) => {
+    try {
+        const { userEmail, password } = req.body
+
+        const authenticateUserUseCase = new AuthenticateUserUseCase()
+        const user = await authenticateUserUseCase.execute({ userEmail, password })
+        const token = signJwt({
+            sub: user.id,
+            email: user.email,
+            role: user.role,
+        })
+
+        res.status(200).json({
+            token,
+            user: sanitizeUser(user),
+        })
+    } catch {
+        res.status(401).json({ message: "Invalid credentials" })
+    }
+})
+
+usersRoutes.post("/", authMiddleware, async (req, res) => {
+    try {
+        const { userEmail, userName, password, userRole = UserRoleEnum.USER } = req.body
+
+        const createUserUseCase = new CreateUserUseCase()
+        const user = await createUserUseCase.execute({
+            userEmail,
+            userName,
+            password,
+            userRole,
+        })
+
+        res.status(201).json(sanitizeUser(user))
+    } catch (error) {
+        res.status(400).json({ message: error instanceof Error ? error.message : "Error creating user" })
+    }
+})
+
+usersRoutes.put("/:id", authMiddleware, async (req, res) => {
+    try {
+        const { userEmail, userName, password, userRole } = req.body
+        const id = req.params.id
+
+        if (typeof id !== "string") {
+            res.status(400).json({ message: "User id is required" })
+            return
+        }
+
+        const updateUserUseCase = new UpdateUserUseCase()
+        const user = await updateUserUseCase.execute({
+            id,
+            userEmail,
+            userName,
+            password,
+            userRole,
+        })
+
+        res.status(200).json(sanitizeUser(user))
+    } catch (error) {
+        res.status(400).json({ message: error instanceof Error ? error.message : "Error updating user" })
+    }
+})
+
+usersRoutes.delete("/:id", authMiddleware, async (req, res) => {
+    try {
+        const id = req.params.id
+
+        if (typeof id !== "string") {
+            res.status(400).json({ message: "User id is required" })
+            return
+        }
+
+        const deleteUserUseCase = new DeleteUserUseCase()
+        await deleteUserUseCase.execute(id)
+
+        res.status(204).send()
+    } catch (error) {
+        res.status(400).json({ message: error instanceof Error ? error.message : "Error deleting user" })
+    }
+})
+
+export { usersRoutes };
