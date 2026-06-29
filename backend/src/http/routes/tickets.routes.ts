@@ -9,8 +9,8 @@ import {
     FindTicketsByResponsibleIdUseCase,
     ListTicketsUseCase,
     UpdateTicketUseCase,
-} from "../usecases/tickets/index.js";
-import { authMiddleware } from "./auth.middleware.js";
+} from "../../infrastructure/usecases/tickets/index.js";
+import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 const ticketsRoutes = Router()
 
@@ -32,7 +32,7 @@ function getParam(value: string | string[] | undefined, name: string) {
     return value
 }
 
-ticketsRoutes.post("/", async (req, res) => {
+ticketsRoutes.post("/", authMiddleware, async (req, res) => {
     try {
         const authUserId = getAuthUserId(req.authUser)
         const { title, description, requesterId, priority, responsibleId } = req.body
@@ -53,7 +53,7 @@ ticketsRoutes.post("/", async (req, res) => {
     }
 })
 
-ticketsRoutes.get("/", async (_req, res) => {
+ticketsRoutes.get("/", authMiddleware, async (_req, res) => {
     try {
         const listTicketsUseCase = new ListTicketsUseCase()
         const tickets = await listTicketsUseCase.execute()
@@ -64,7 +64,7 @@ ticketsRoutes.get("/", async (_req, res) => {
     }
 })
 
-ticketsRoutes.get("/requester/:requesterId", async (req, res) => {
+ticketsRoutes.get("/requester/:requesterId", authMiddleware, async (req, res) => {
     try {
         const requesterId = getParam(req.params.requesterId, "Requester id")
 
@@ -77,7 +77,7 @@ ticketsRoutes.get("/requester/:requesterId", async (req, res) => {
     }
 })
 
-ticketsRoutes.get("/responsible/:responsibleId", async (req, res) => {
+ticketsRoutes.get("/responsible/:responsibleId", authMiddleware, async (req, res) => {
     try {
         const responsibleId = getParam(req.params.responsibleId, "Responsible id")
 
@@ -90,7 +90,7 @@ ticketsRoutes.get("/responsible/:responsibleId", async (req, res) => {
     }
 })
 
-ticketsRoutes.get("/:id/history", async (req, res) => {
+ticketsRoutes.get("/:id/history", authMiddleware, async (req, res) => {
     try {
         const id = getParam(req.params.id, "Ticket id")
 
@@ -103,7 +103,7 @@ ticketsRoutes.get("/:id/history", async (req, res) => {
     }
 })
 
-ticketsRoutes.post("/:id/comments", async (req, res) => {
+ticketsRoutes.post("/:id/comments", authMiddleware, async (req, res) => {
     try {
         const authUserId = getAuthUserId(req.authUser)
         const id = getParam(req.params.id, "Ticket id")
@@ -122,7 +122,7 @@ ticketsRoutes.post("/:id/comments", async (req, res) => {
     }
 })
 
-ticketsRoutes.get("/:id", async (req, res) => {
+ticketsRoutes.get("/:id", authMiddleware, async (req, res) => {
     try {
         const id = getParam(req.params.id, "Ticket id")
 
@@ -140,7 +140,7 @@ ticketsRoutes.get("/:id", async (req, res) => {
     }
 })
 
-ticketsRoutes.put("/:id", async (req, res) => {
+ticketsRoutes.put("/:id", authMiddleware, async (req, res) => {
     try {
         const authUserId = getAuthUserId(req.authUser)
         const id = getParam(req.params.id, "Ticket id")
@@ -164,7 +164,7 @@ ticketsRoutes.put("/:id", async (req, res) => {
     }
 })
 
-ticketsRoutes.delete("/:id", async (req, res) => {
+ticketsRoutes.delete("/:id", authMiddleware, async (req, res) => {
     try {
         const id = getParam(req.params.id, "Ticket id")
 

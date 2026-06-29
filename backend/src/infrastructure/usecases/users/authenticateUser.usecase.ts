@@ -1,4 +1,5 @@
 import { UserRepository } from "../../repositories/users.repository.js";
+import bcrypt from "bcrypt";
 
 type Input = {
     userEmail: string;
@@ -6,15 +7,23 @@ type Input = {
 }
 
 export class AuthenticateUserUseCase {
-    constructor(private readonly userRepository = new UserRepository()) {}
+    constructor(private readonly userRepository = new UserRepository()) { }
 
     public async execute(input: Input) {
-        const user = await this.userRepository.findByEmail(input.userEmail)
+        const user = await this.userRepository.findByEmail(input.userEmail);
 
-        if (!user || user.password !== input.password) {
-            throw new Error("Invalid credentials")
+        if (!user) {
+            throw new Error("Invalid credentials");
         }
 
-        return user
+        const isPasswordValid = await bcrypt.compare(
+            input.password,
+            user.password
+        );
+
+        if (!isPasswordValid) {
+            throw new Error("Invalid credentials");
+        }
+
     }
 }

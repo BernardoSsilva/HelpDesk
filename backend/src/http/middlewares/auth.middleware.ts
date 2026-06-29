@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { verifyJwt } from "./jwt.js";
+import { verifyJwt } from "../jwt/jwt.js";
 
 declare global {
     namespace Express {
@@ -16,12 +16,14 @@ declare global {
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
     const authorization = req.headers.authorization
 
+
     if (!authorization) {
         res.status(401).json({ message: "Token not provided" })
         return
     }
 
     const [type, token] = authorization.split(" ")
+
 
     if (type !== "Bearer" || !token) {
         res.status(401).json({ message: "Invalid authorization header" })

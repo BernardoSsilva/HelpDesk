@@ -5,9 +5,10 @@ import {
     CreateUserUseCase,
     DeleteUserUseCase,
     UpdateUserUseCase,
-} from "../usecases/users/index.js";
-import { authMiddleware } from "./auth.middleware.js";
-import { signJwt } from "./jwt.js";
+} from "../../infrastructure/usecases/users/index.js";
+import { authMiddleware } from "../middlewares/auth.middleware.js";
+import { signJwt } from "../jwt/jwt.js";
+import { adminCheckerMiddleware } from "../middlewares/admin.checker.middleware.js";
 
 const usersRoutes = Router()
 
@@ -37,7 +38,7 @@ usersRoutes.post("/auth", async (req, res) => {
     }
 })
 
-usersRoutes.post("/", authMiddleware, async (req, res) => {
+usersRoutes.post("/", authMiddleware, adminCheckerMiddleware, async (req, res) => {
     try {
         const { userEmail, userName, password, userRole = UserRoleEnum.USER } = req.body
 
@@ -55,7 +56,7 @@ usersRoutes.post("/", authMiddleware, async (req, res) => {
     }
 })
 
-usersRoutes.put("/:id", authMiddleware, async (req, res) => {
+usersRoutes.put("/:id", authMiddleware, adminCheckerMiddleware, async (req, res) => {
     try {
         const { userEmail, userName, password, userRole } = req.body
         const id = req.params.id
@@ -80,7 +81,7 @@ usersRoutes.put("/:id", authMiddleware, async (req, res) => {
     }
 })
 
-usersRoutes.delete("/:id", authMiddleware, async (req, res) => {
+usersRoutes.delete("/:id", authMiddleware, adminCheckerMiddleware, async (req, res) => {
     try {
         const id = req.params.id
 

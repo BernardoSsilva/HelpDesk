@@ -3,7 +3,6 @@ import { BaseEntity } from "./base.entity.js";
 
 
 type Props = {
-    id?: string;
     userEmail: string;
     userName: string;
     password: string;
@@ -46,8 +45,8 @@ export class UserEntity extends BaseEntity {
     public setPassword(value: string) {
         this.password = value
     }
-    constructor({ id, password, userEmail, userName, userRole }: Props) {
-        super(id)
+    constructor({ password, userEmail, userName, userRole }: Props) {
+        super()
 
         this.setEmail(userEmail)
         this.setUserName(userName)
