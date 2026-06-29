@@ -4,6 +4,8 @@ import {
     AuthenticateUserUseCase,
     CreateUserUseCase,
     DeleteUserUseCase,
+    FindUserByIdUseCase,
+    ListUsersUseCase,
     UpdateUserUseCase,
 } from "../../infrastructure/usecases/users/index.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
@@ -20,9 +22,12 @@ function sanitizeUser<T extends { password?: string }>(user: T) {
 usersRoutes.post("/auth", async (req, res) => {
     try {
         const { userEmail, password } = req.body
-
+        console.log(req.body)
         const authenticateUserUseCase = new AuthenticateUserUseCase()
+
+        console.log(req.body)
         const user = await authenticateUserUseCase.execute({ userEmail, password })
+        console.log(user)
         const token = signJwt({
             sub: user.id,
             email: user.email,
@@ -53,6 +58,40 @@ usersRoutes.post("/", authMiddleware, adminCheckerMiddleware, async (req, res) =
         res.status(201).json(sanitizeUser(user))
     } catch (error) {
         res.status(400).json({ message: error instanceof Error ? error.message : "Error creating user" })
+    }
+})
+
+usersRoutes.get("/", authMiddleware, adminCheckerMiddleware, async (_req, res) => {
+    try {
+        const listUsersUseCase = new ListUsersUseCase()
+        const users = await listUsersUseCase.execute()
+
+        res.status(200).json(users.map(sanitizeUser))
+    } catch (error) {
+        res.status(400).json({ message: error instanceof Error ? error.message : "Error listing users" })
+    }
+})
+
+usersRoutes.get("/:id", authMiddleware, adminCheckerMiddleware, async (req, res) => {
+    try {
+        const id = req.params.id
+
+        if (typeof id !== "string") {
+            res.status(400).json({ message: "User id is required" })
+            return
+        }
+
+        const findUserByIdUseCase = new FindUserByIdUseCase()
+        const user = await findUserByIdUseCase.execute(id)
+
+        if (!user) {
+            res.status(404).json({ message: "User not found" })
+            return
+        }
+
+        res.status(200).json(sanitizeUser(user))
+    } catch (error) {
+        res.status(400).json({ message: error instanceof Error ? error.message : "Error finding user" })
     }
 })
 

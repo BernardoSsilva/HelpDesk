@@ -10,8 +10,10 @@ export class AuthenticateUserUseCase {
     constructor(private readonly userRepository = new UserRepository()) { }
 
     public async execute(input: Input) {
+        console.log('entrou')
         const user = await this.userRepository.findByEmail(input.userEmail);
 
+        console.log(user)
         if (!user) {
             throw new Error("Invalid credentials");
         }
@@ -25,5 +27,6 @@ export class AuthenticateUserUseCase {
             throw new Error("Invalid credentials");
         }
 
+        return user
     }
 }

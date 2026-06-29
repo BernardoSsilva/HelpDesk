@@ -1,11 +1,8 @@
 import type { UserEntity } from "../../domain/entities/user.entity.js";
 import { prisma } from "../prisma.client.js";
-import bcrypt from "bcrypt";
 
 export class UserRepository {
     public async createUser(entity: UserEntity) {
-        const hashedPassword = await bcrypt.hash(entity.getPassword(), 10);
-
         return await prisma.user.create({
             data: {
                 id: entity.getId(),

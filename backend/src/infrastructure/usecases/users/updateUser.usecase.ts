@@ -1,6 +1,7 @@
 import { UserEntity } from "../../../domain/entities/user.entity.js";
 import type { UserRoleEnum } from "../../../domain/enums/userRole.enum.js";
 import { UserRepository } from "../../repositories/users.repository.js";
+import bcrypt from "bcrypt";
 
 type Input = {
     id: string;
@@ -32,7 +33,7 @@ export class UpdateUserUseCase {
             id: user.id,
             userEmail: input.userEmail ?? user.email,
             userName: input.userName ?? user.name,
-            password: input.password ?? user.password,
+            password: input.password ? await bcrypt.hash(input.password, 10) : user.password,
             userRole: input.userRole ?? user.role as UserRoleEnum,
         })
 
