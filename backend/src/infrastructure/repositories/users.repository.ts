@@ -32,7 +32,11 @@ export class UserRepository {
     }
 
     public async listUsers() {
-        return await prisma.user.findMany()
+        return await prisma.user.findMany({
+            orderBy: {
+                name: "asc",
+            },
+        })
     }
 
     public async updateUser(entity: UserEntity) {

@@ -1,4 +1,5 @@
 import express from 'express'
+import { dashboardRoutes } from './http/routes/dashboard.routes.js';
 import { ticketsRoutes } from './http/routes/tickets.routes.js';
 import { usersRoutes } from './http/routes/users.routes.js';
 import { swaggerRoutes } from './http/routes/swagger.routes.js';
@@ -20,6 +21,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', swaggerRoutes)
+app.use('/dashboard', dashboardRoutes)
 app.use('/users', usersRoutes)
 app.use('/tickets', ticketsRoutes)
 

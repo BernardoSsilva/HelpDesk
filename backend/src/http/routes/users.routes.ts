@@ -22,12 +22,9 @@ function sanitizeUser<T extends { password?: string }>(user: T) {
 usersRoutes.post("/auth", async (req, res) => {
     try {
         const { userEmail, password } = req.body
-        console.log(req.body)
         const authenticateUserUseCase = new AuthenticateUserUseCase()
 
-        console.log(req.body)
         const user = await authenticateUserUseCase.execute({ userEmail, password })
-        console.log(user)
         const token = signJwt({
             sub: user.id,
             email: user.email,

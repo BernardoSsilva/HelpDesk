@@ -9,16 +9,18 @@ import { priorityOptions, statusOptions } from "../data/constants";
 import { fallbackHistory, fallbackTickets, fallbackUsers } from "../data/fallback";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { formatDateTime, priorityLabel, shortId, statusLabel, userName } from "../utils/formatters";
+import type { TicketHistory, UpdateTicketPayload } from "../types";
+import type { LucideIcon } from "lucide-react";
 
-const actionIcon = {
+const actionIcon: Partial<Record<TicketHistory["action"], LucideIcon>> = {
   TICKET_CRIADO: CheckCircle2,
   STATUS_ALTERADO: Clock3,
   RESPONSAVEL_ALTERADO: UserRound,
   COMENTARIO_ADICIONADO: MessageSquare,
 };
 
-function actionTitle(item) {
-  const labels = {
+function actionTitle(item: TicketHistory) {
+  const labels: Record<TicketHistory["action"], string> = {
     TICKET_CRIADO: "Ticket criado",
     STATUS_ALTERADO: "Status alterado",
     RESPONSAVEL_ALTERADO: "Responsavel alterado",
@@ -34,11 +36,12 @@ function actionTitle(item) {
 export default function TicketDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const ticketId = id || "";
   const { data: users } = useAsyncData(() => usersApi.list(), [], fallbackUsers);
   const { data: tickets } = useAsyncData(() => ticketsApi.list(), [], fallbackTickets);
-  const fallbackTicket = tickets.find((ticketItem) => ticketItem.id === id) || fallbackTickets[0];
-  const { data: ticket, error, refresh } = useAsyncData(() => ticketsApi.getById(id), [id], fallbackTicket);
-  const { data: history, refresh: refreshHistory } = useAsyncData(() => ticketsApi.history(id), [id], fallbackHistory);
+  const fallbackTicket = tickets.find((ticketItem) => ticketItem.id === ticketId) || fallbackTickets[0];
+  const { data: ticket, error, refresh } = useAsyncData(() => ticketsApi.getById(ticketId), [ticketId], fallbackTicket);
+  const { data: history, refresh: refreshHistory } = useAsyncData(() => ticketsApi.history(ticketId), [ticketId], fallbackHistory);
   const [tab, setTab] = useState(1);
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
@@ -47,11 +50,11 @@ export default function TicketDetail() {
   const requester = useMemo(() => userName(users, currentTicket?.requesterId), [currentTicket?.requesterId, users]);
   const responsible = useMemo(() => userName(users, currentTicket?.responsibleId), [currentTicket?.responsibleId, users]);
 
-  const updateTicket = async (payload) => {
+  const updateTicket = async (payload: UpdateTicketPayload) => {
     setSaving(true);
 
     try {
-      await ticketsApi.update(id, payload);
+      await ticketsApi.update(ticketId, payload);
       await refresh();
       await refreshHistory();
     } finally {
@@ -67,7 +70,7 @@ export default function TicketDetail() {
     setSaving(true);
 
     try {
-      await ticketsApi.comment(id, comment.trim());
+      await ticketsApi.comment(ticketId, comment.trim());
       setComment("");
       await refreshHistory();
     } finally {

@@ -3,6 +3,8 @@ import type {
   AuthResponse,
   CreateTicketPayload,
   CreateUserPayload,
+  DashboardData,
+  DashboardFilters,
   LoginPayload,
   Ticket,
   TicketHistory,
@@ -44,6 +46,20 @@ api.interceptors.response.use(
 
 export const authApi = {
   login: (payload: LoginPayload) => api.post<AuthResponse>("/users/auth", payload).then((res) => res.data),
+};
+
+export const dashboardApi = {
+  get: (filters: DashboardFilters) => {
+    const params = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      }
+    });
+
+    return api.get<DashboardData>(`/dashboard?${params.toString()}`).then((res) => res.data);
+  },
 };
 
 export const ticketsApi = {

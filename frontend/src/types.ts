@@ -33,6 +33,58 @@ export type Ticket = {
   updatedAt: string;
 };
 
+export type DashboardFilters = {
+  endDate?: string;
+  priority?: TicketPriority | "";
+  requesterId?: string;
+  responsibleId?: string;
+  search?: string;
+  startDate?: string;
+  status?: TicketStatus | "";
+};
+
+export type DashboardUserOption = Pick<User, "id" | "name">;
+
+export type DashboardTicket = Ticket & {
+  requester?: DashboardUserOption;
+  responsible?: DashboardUserOption | null;
+};
+
+export type DashboardData = {
+  filters: {
+    endDate: string;
+    startDate: string;
+  };
+  options: {
+    requesters: DashboardUserOption[];
+    responsibles: DashboardUserOption[];
+  };
+  recentTickets: DashboardTicket[];
+  series: {
+    count: number;
+    date: string;
+    label: string;
+  }[];
+  stats: {
+    changePercent: number;
+    previousTotal: number;
+    total: number;
+  };
+  ticketsByPriority: {
+    count: number;
+    priority: TicketPriority;
+  }[];
+  ticketsByResponsible: {
+    count: number;
+    id: string | null;
+    name: string;
+  }[];
+  ticketsByStatus: {
+    count: number;
+    status: TicketStatus;
+  }[];
+};
+
 export type TicketHistory = {
   id: string;
   ticketId?: string;
