@@ -1,4 +1,4 @@
-import { Button } from "@mui/material";
+import { Button, CircularProgress } from "@mui/material";
 import { Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ticketsApi } from "../api/client";
@@ -13,7 +13,7 @@ import { formatDateTime, shortId } from "../utils/formatters";
 export default function MyTickets() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { data: tickets } = useAsyncData(() => (user?.id ? ticketsApi.listMine(user.id) : Promise.resolve([])), [user?.id], fallbackTickets.slice(0, 4));
+  const { data: tickets, loading } = useAsyncData(() => (user?.id ? ticketsApi.listMine(user.id) : Promise.resolve([])), [user?.id], fallbackTickets.slice(0, 4));
 
   return (
     <div>
@@ -26,7 +26,12 @@ export default function MyTickets() {
         }
       />
 
-      {tickets.length ? (
+      {loading && !tickets.length ? (
+        <div className="flex items-center justify-center gap-3 py-12 text-sm font-semibold text-slate-500">
+          <CircularProgress size={22} />
+          Carregando tickets...
+        </div>
+      ) : tickets.length ? (
         <div className="grid gap-4 lg:grid-cols-2">
           {tickets.map((ticketItem) => (
             <button key={ticketItem.id} className="soft-card rounded-md p-5 text-left transition hover:-translate-y-0.5 hover:shadow-xl" onClick={() => navigate(`/tickets/${ticketItem.id}`)}>

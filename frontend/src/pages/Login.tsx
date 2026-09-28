@@ -2,7 +2,7 @@ import { Alert, Button, Checkbox, FormControlLabel, IconButton, TextField } from
 import type { AxiosError } from "axios";
 import { Eye, EyeOff, Headphones } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
 
 export default function Login() {
@@ -26,7 +26,6 @@ export default function Login() {
       await login({ email, password });
       navigate(location.state?.from?.pathname || "/dashboard", { replace: true });
     } catch (err) {
-      console.log(err)
       const axiosError = err as AxiosError<{ message?: string }>;
       setError(axiosError.response?.data?.message || "Nao foi possivel entrar. Confira seu e-mail e senha.");
     }
@@ -59,14 +58,17 @@ export default function Login() {
             <div className="space-y-4">
               <TextField
                 fullWidth
+                autoComplete="email"
                 label="E-mail"
                 placeholder="seu@email.com"
                 size="small"
+                type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
               <TextField
                 fullWidth
+                autoComplete="current-password"
                 label="Senha"
                 placeholder="********"
                 size="small"
@@ -76,7 +78,12 @@ export default function Login() {
                 slotProps={{
                   input: {
                     endAdornment: (
-                      <IconButton edge="end" onClick={() => setShowPassword((current) => !current)} size="small">
+                      <IconButton
+                        aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                        edge="end"
+                        onClick={() => setShowPassword((current) => !current)}
+                        size="small"
+                      >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </IconButton>
                     ),
@@ -87,9 +94,6 @@ export default function Login() {
 
             <div className="my-4 flex items-center justify-between gap-3">
               <FormControlLabel control={<Checkbox size="small" />} label={<span className="text-sm">Lembrar de mim</span>} />
-              {/* <Link className="text-sm font-bold text-blue-600" to="/login">
-                Esqueci minha senha
-              </Link> */}
             </div>
 
             <Button fullWidth disabled={loading} type="submit" variant="contained">

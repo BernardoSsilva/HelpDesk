@@ -284,13 +284,13 @@ export default function Users() {
                       <TableCell>{formatDateTime(user.updatedAt)}</TableCell>
                       <TableCell align="right">
                         <Tooltip title="Editar">
-                          <IconButton onClick={() => openEdit(user)} size="small">
+                          <IconButton aria-label="Editar usuario" onClick={() => openEdit(user)} size="small">
                             <Pencil className="h-4 w-4" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Excluir">
                           <span>
-                            <IconButton color="error" disabled={removingId === user.id} onClick={() => removeUser(user)} size="small">
+                            <IconButton aria-label="Excluir usuario" color="error" disabled={removingId === user.id} onClick={() => removeUser(user)} size="small">
                               <Trash2 className="h-4 w-4" />
                             </IconButton>
                           </span>

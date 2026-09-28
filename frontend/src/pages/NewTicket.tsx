@@ -1,7 +1,7 @@
 import { Alert, Button, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material";
 import type { AxiosError } from "axios";
-import { ArrowLeft, Paperclip, Plus } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ticketsApi, usersApi } from "../api/client";
@@ -143,14 +143,6 @@ export default function NewTicket() {
                   ))}
                 </Select>
               </FormControl>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-bold text-slate-800">Anexo (opcional)</label>
-              <button className="flex w-full items-center gap-3 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-500" type="button">
-                <Paperclip className="h-4 w-4" />
-                Selecionar arquivo
-              </button>
             </div>
           </div>
 

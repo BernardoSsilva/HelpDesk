@@ -15,7 +15,7 @@ import {
   TextField,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material";
-import { CheckCircle2, Clock3, LockKeyhole, PauseCircle, Search, SlidersHorizontal, Ticket, TimerReset } from "lucide-react";
+import { CheckCircle2, Clock3, LockKeyhole, PauseCircle, RefreshCw, Search, SlidersHorizontal, Ticket, TimerReset } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { dashboardApi } from "../api/client";
@@ -175,7 +175,7 @@ export default function Dashboard() {
       <SectionHeader
         title="Dashboard"
         actions={
-          <Button variant="outlined" onClick={() => refresh()}>
+          <Button startIcon={<RefreshCw className="h-4 w-4" />} variant="outlined" onClick={() => refresh()}>
             Atualizar
           </Button>
         }

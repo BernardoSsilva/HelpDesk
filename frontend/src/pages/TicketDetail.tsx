@@ -1,5 +1,5 @@
 import { Alert, Button, FormControl, IconButton, InputLabel, MenuItem, Select, Tab, Tabs, TextField } from "@mui/material";
-import { ArrowLeft, CheckCircle2, Clock3, MessageSquare, Save, UserRound } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock3, MessageSquare, RefreshCw, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ticketsApi, usersApi } from "../api/client";
@@ -86,13 +86,13 @@ export default function TicketDetail() {
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <IconButton onClick={() => navigate("/tickets")} size="small">
+          <IconButton aria-label="Voltar" onClick={() => navigate("/tickets")} size="small">
             <ArrowLeft className="h-5 w-5" />
           </IconButton>
           <h1 className="text-xl font-extrabold text-slate-950">Ticket {shortId(currentTicket.id)}</h1>
           <StatusBadge value={currentTicket.status} />
         </div>
-        <Button disabled={saving} startIcon={<Save className="h-4 w-4" />} variant="outlined" onClick={() => refresh()}>
+        <Button disabled={saving} startIcon={<RefreshCw className="h-4 w-4" />} variant="outlined" onClick={() => refresh()}>
           Atualizar
         </Button>
       </div>
