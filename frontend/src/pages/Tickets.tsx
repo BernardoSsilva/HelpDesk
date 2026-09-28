@@ -1,9 +1,11 @@
 import {
   Button,
+  CircularProgress,
   FormControl,
   IconButton,
   InputAdornment,
   InputLabel,
+  Menu,
   MenuItem,
   Pagination,
   Select,
@@ -18,8 +20,8 @@ import {
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material";
 import { Eye, MoreHorizontal, Plus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState, type MouseEvent } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ticketsApi, usersApi } from "../api/client";
 import { PriorityBadge, StatusBadge } from "../components/BadgePill";
 import EmptyState from "../components/EmptyState";
@@ -27,19 +29,42 @@ import SectionHeader from "../components/SectionHeader";
 import { priorityOptions, statusOptions } from "../data/constants";
 import { fallbackTickets, fallbackUsers } from "../data/fallback";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { formatDateTime, normalizeText, shortId, userName } from "../utils/formatters";
-import type { TicketPriority, TicketStatus } from "../types";
+import { formatDateTime, normalizeText, shortId, statusLabel, userName } from "../utils/formatters";
+import type { Ticket, TicketPriority, TicketStatus } from "../types";
 
 const rowsPerPage = 8;
 
 export default function Tickets() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState("");
+  const [searchParams] = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get("q") || "");
   const [status, setStatus] = useState<TicketStatus | "">("");
   const [priority, setPriority] = useState<TicketPriority | "">("");
   const [page, setPage] = useState(1);
-  const { data: tickets, refresh } = useAsyncData(() => ticketsApi.list(), [], fallbackTickets);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [menuTicket, setMenuTicket] = useState<Ticket | null>(null);
+  const { data: tickets, loading, refresh } = useAsyncData(() => ticketsApi.list(), [], fallbackTickets);
   const { data: users } = useAsyncData(() => usersApi.list(), [], fallbackUsers);
+
+  const openQuickActions = (event: MouseEvent<HTMLElement>, ticketItem: Ticket) => {
+    event.stopPropagation();
+    setMenuAnchor(event.currentTarget);
+    setMenuTicket(ticketItem);
+  };
+
+  const closeQuickActions = () => {
+    setMenuAnchor(null);
+    setMenuTicket(null);
+  };
+
+  const setQuickStatus = async (nextStatus: TicketStatus) => {
+    if (menuTicket) {
+      await ticketsApi.update(menuTicket.id, { status: nextStatus });
+      refresh();
+    }
+
+    closeQuickActions();
+  };
 
   const filteredTickets = useMemo(() => {
     return tickets.filter((ticketItem) => {
@@ -128,7 +153,12 @@ export default function Tickets() {
           </Button>
         </div>
 
-        {pageTickets.length ? (
+        {loading && !tickets.length ? (
+          <div className="flex items-center justify-center gap-3 py-12 text-sm font-semibold text-slate-500">
+            <CircularProgress size={22} />
+            Carregando tickets...
+          </div>
+        ) : pageTickets.length ? (
           <>
             <TableContainer>
               <Table size="small">
@@ -160,17 +190,17 @@ export default function Tickets() {
                       <TableCell>{formatDateTime(ticketItem.updatedAt)}</TableCell>
                       <TableCell align="right" onClick={(event) => event.stopPropagation()}>
                         <Tooltip title="Abrir">
-                          <IconButton onClick={() => navigate(`/tickets/${ticketItem.id}`)} size="small">
+                          <IconButton aria-label="Abrir ticket" onClick={() => navigate(`/tickets/${ticketItem.id}`)} size="small">
                             <Eye className="h-4 w-4" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Excluir">
-                          <IconButton color="error" onClick={() => removeTicket(ticketItem.id)} size="small">
+                          <IconButton aria-label="Excluir ticket" color="error" onClick={() => removeTicket(ticketItem.id)} size="small">
                             <Trash2 className="h-4 w-4" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Mais opcoes">
-                          <IconButton size="small">
+                          <IconButton aria-label="Mais opcoes" size="small" onClick={(event) => openQuickActions(event, ticketItem)}>
                             <MoreHorizontal className="h-4 w-4" />
                           </IconButton>
                         </Tooltip>
@@ -189,6 +219,16 @@ export default function Tickets() {
           <EmptyState title="Nenhum ticket encontrado" description="Ajuste os filtros ou crie um novo ticket para continuar." />
         )}
       </section>
+
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeQuickActions}>
+        <MenuItem onClick={() => menuTicket && navigate(`/tickets/${menuTicket.id}`)}>Ver detalhes</MenuItem>
+        <MenuItem disabled={menuTicket?.status === "RESOLVIDO"} onClick={() => setQuickStatus("RESOLVIDO")}>
+          Marcar como {statusLabel("RESOLVIDO").toLowerCase()}
+        </MenuItem>
+        <MenuItem disabled={menuTicket?.status === "FECHADO"} onClick={() => setQuickStatus("FECHADO")}>
+          Marcar como {statusLabel("FECHADO").toLowerCase()}
+        </MenuItem>
+      </Menu>
     </div>
   );
 }
