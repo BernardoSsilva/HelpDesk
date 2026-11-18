@@ -3,22 +3,20 @@
     "module": "nodenext",
     "moduleResolution": "NodeNext",
     "target": "ES2022",
-    "types": [],
+    "types": ["node"],
 
-    // Other Outputs
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
+    // O código roda direto com tsx; o tsc é usado apenas para checagem de tipos.
+    "noEmit": true,
 
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
 
     "strict": true,
-    "jsx": "react-jsx",
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true
-  }
+  },
+  "include": ["src", "tests", "prisma.config.ts"]
 }

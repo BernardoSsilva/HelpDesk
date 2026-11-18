@@ -1,27 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
-import { verifyJwt } from "../jwt/jwt.js";
+import { UserRoleEnum } from "../../domain/enums/userRole.enum.js";
+import { ForbiddenError } from "../../domain/errors/domain.error.js";
+import { requireAuthUser } from "./auth.middleware.js";
 
-
-export function adminCheckerMiddleware(req: Request, res: Response, next: NextFunction) {
-    const authorization = req.headers.authorization
-
-    if (!authorization) {
-        res.status(401).json({ message: "Token not provided" })
-        return
-    }
-
-    const [type, token] = authorization.split(" ")
-
-    if (type !== "Bearer" || !token) {
-        res.status(401).json({ message: "Invalid authorization header" })
-        return
-    }
-
-    const payload = verifyJwt(token as string)
-
-    if (payload.role != "ADMIN") {
-        res.status(401).json({ message: "Unauthorized" })
-        return
+/** Deve ser usado depois do `authMiddleware`. Responde 403 (e não 401) para não-administradores. */
+export function adminCheckerMiddleware(req: Request, _res: Response, next: NextFunction) {
+    if (requireAuthUser(req).role !== UserRoleEnum.ADMIN) {
+        throw new ForbiddenError("Acesso restrito a administradores")
     }
 
     next()

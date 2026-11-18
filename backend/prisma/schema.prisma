@@ -27,6 +27,14 @@ enum TicketPriorityEnum {
   CRITICA
 }
 
+enum TicketDepartmentEnum {
+  TI
+  FINANCEIRO
+  RH
+  OPERACOES
+  OUTROS
+}
+
 enum TicketHistoryActionEnum {
   TICKET_CRIADO
   STATUS_ALTERADO
@@ -34,6 +42,7 @@ enum TicketHistoryActionEnum {
   TITULO_ALTERADO
   DESCRICAO_ALTERADA
   PRIORIDADE_ALTERADA
+  DEPARTAMENTO_ALTERADO
   COMENTARIO_ADICIONADO
 }
 
@@ -54,15 +63,16 @@ model User {
 }
 
 model Ticket {
-  id            String             @id @default(uuid()) @db.Uuid
-  title         String             @map("title")
-  description   String             @map("description")
-  status        TicketStatusEnum   @default(ABERTO) @map("status")
-  priority      TicketPriorityEnum @map("priority")
-  requesterId   String             @map("requester_id") @db.Uuid
-  responsibleId String?            @map("responsible_id") @db.Uuid
-  createdAt     DateTime           @default(now()) @map("created_at")
-  updatedAt     DateTime           @updatedAt @map("updated_at")
+  id            String                @id @default(uuid()) @db.Uuid
+  title         String                @map("title")
+  description   String                @map("description")
+  status        TicketStatusEnum      @default(ABERTO) @map("status")
+  priority      TicketPriorityEnum    @map("priority")
+  department    TicketDepartmentEnum? @map("department")
+  requesterId   String                @map("requester_id") @db.Uuid
+  responsibleId String?               @map("responsible_id") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
 
   requester   User            @relation("TicketRequester", fields: [requesterId], references: [id])
   responsible User?           @relation("TicketResponsible", fields: [responsibleId], references: [id])
@@ -72,6 +82,8 @@ model Ticket {
   @@index([responsibleId])
   @@index([status])
   @@index([priority])
+  @@index([createdAt])
+  @@index([updatedAt])
   @@map("tickets")
 }
 

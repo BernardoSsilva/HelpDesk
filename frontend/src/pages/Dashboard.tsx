@@ -1,11 +1,7 @@
 import {
   Alert,
   Button,
-  FormControl,
   InputAdornment,
-  InputLabel,
-  MenuItem,
-  Select,
   Table,
   TableBody,
   TableCell,
@@ -14,7 +10,6 @@ import {
   TableRow,
   TextField,
 } from "@mui/material";
-import type { SelectChangeEvent } from "@mui/material";
 import { CheckCircle2, Clock3, LockKeyhole, PauseCircle, RefreshCw, Search, SlidersHorizontal, Ticket, TimerReset } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -22,9 +17,11 @@ import { dashboardApi } from "../api/client";
 import { PriorityBadge, StatusBadge } from "../components/BadgePill";
 import EmptyState from "../components/EmptyState";
 import SectionHeader from "../components/SectionHeader";
+import SelectField from "../components/SelectField";
 import StatCard from "../components/StatCard";
 import { priorityOptions, statusOptions } from "../data/constants";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { formatDateTime, priorityLabel, shortId, statusLabel } from "../utils/formatters";
 import type { DashboardData, DashboardFilters, TicketPriority, TicketStatus } from "../types";
 import type { LucideIcon } from "lucide-react";
@@ -87,10 +84,10 @@ function defaultStartDate() {
 
 function trendText(value: number) {
   if (value === 0) {
-    return "Sem variacao contra o periodo anterior";
+    return "Sem variação contra o período anterior";
   }
 
-  return `${value > 0 ? "+" : ""}${value}% contra o periodo anterior`;
+  return `${value > 0 ? "+" : ""}${value}% contra o período anterior`;
 }
 
 function conicGradient(data: DashboardData["ticketsByStatus"]) {
@@ -123,9 +120,12 @@ export default function Dashboard() {
     status: "",
   });
 
+  // A busca só dispara a requisição quando o usuário para de digitar; os demais filtros valem na hora.
+  const debouncedSearch = useDebouncedValue(filters.search);
+
   const { data: dashboard, error, loading, refresh } = useAsyncData(
-    () => dashboardApi.get(filters),
-    [filters.endDate, filters.priority, filters.requesterId, filters.responsibleId, filters.search, filters.startDate, filters.status],
+    () => dashboardApi.get({ ...filters, search: debouncedSearch }),
+    [filters.endDate, filters.priority, filters.requesterId, filters.responsibleId, debouncedSearch, filters.startDate, filters.status],
     emptyDashboard,
   );
 
@@ -146,7 +146,7 @@ export default function Dashboard() {
       label: status.label,
       value: statusCounts[status.value] || 0,
       color: statusColors[status.value],
-      trend: "No periodo filtrado",
+      trend: "No período filtrado",
     })),
   ];
 
@@ -182,7 +182,15 @@ export default function Dashboard() {
       />
 
       {error ? (
-        <Alert className="mb-5" severity="info">
+        <Alert
+          action={
+            <Button color="inherit" size="small" onClick={() => void refresh()}>
+              Tentar de novo
+            </Button>
+          }
+          className="mb-5"
+          severity="error"
+        >
           {error}
         </Alert>
       ) : null}
@@ -190,7 +198,7 @@ export default function Dashboard() {
       <section className="content-card mb-5 rounded-md p-5">
         <div className="grid gap-3 lg:grid-cols-4 2xl:grid-cols-7">
           <TextField
-            label="Inicio"
+            label="Início"
             size="small"
             type="date"
             value={filters.startDate}
@@ -207,7 +215,7 @@ export default function Dashboard() {
           />
           <TextField
             label="Busca"
-            placeholder="Titulo ou descricao"
+            placeholder="Título ou descrição"
             size="small"
             value={filters.search}
             onChange={(event) => updateFilter("search", event.target.value)}
@@ -221,62 +229,41 @@ export default function Dashboard() {
               },
             }}
           />
-          <FormControl size="small">
-            <InputLabel>Status</InputLabel>
-            <Select label="Status" value={filters.status || ""} onChange={(event: SelectChangeEvent) => updateFilter("status", event.target.value as TicketStatus | "")}>
-              <MenuItem value="">Todos</MenuItem>
-              {statusOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel>Prioridade</InputLabel>
-            <Select
-              label="Prioridade"
-              value={filters.priority || ""}
-              onChange={(event: SelectChangeEvent) => updateFilter("priority", event.target.value as TicketPriority | "")}
-            >
-              <MenuItem value="">Todas</MenuItem>
-              {priorityOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel>Solicitante</InputLabel>
-            <Select label="Solicitante" value={filters.requesterId || ""} onChange={(event: SelectChangeEvent) => updateFilter("requesterId", event.target.value)}>
-              <MenuItem value="">Todos</MenuItem>
-              {dashboard.options.requesters.map((user) => (
-                <MenuItem key={user.id} value={user.id}>
-                  {user.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small">
-            <InputLabel>Responsavel</InputLabel>
-            <Select label="Responsavel" value={filters.responsibleId || ""} onChange={(event: SelectChangeEvent) => updateFilter("responsibleId", event.target.value)}>
-              <MenuItem value="">Todos</MenuItem>
-              <MenuItem value="unassigned">Sem responsavel</MenuItem>
-              {dashboard.options.responsibles.map((user) => (
-                <MenuItem key={user.id} value={user.id}>
-                  {user.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <SelectField
+            emptyLabel="Todos"
+            label="Status"
+            options={statusOptions}
+            value={filters.status || ""}
+            onChange={(value) => updateFilter("status", value)}
+          />
+          <SelectField
+            emptyLabel="Todas"
+            label="Prioridade"
+            options={priorityOptions}
+            value={filters.priority || ""}
+            onChange={(value) => updateFilter("priority", value)}
+          />
+          <SelectField
+            emptyLabel="Todos"
+            label="Solicitante"
+            options={dashboard.options.requesters.map((user) => ({ value: user.id, label: user.name }))}
+            value={filters.requesterId || ""}
+            onChange={(value) => updateFilter("requesterId", value)}
+          />
+          <SelectField
+            emptyLabel="Todos"
+            label="Responsável"
+            options={[{ value: "unassigned", label: "Sem responsável" }, ...dashboard.options.responsibles.map((user) => ({ value: user.id, label: user.name }))]}
+            value={filters.responsibleId || ""}
+            onChange={(value) => updateFilter("responsibleId", value)}
+          />
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button startIcon={<SlidersHorizontal className="h-4 w-4" />} variant="outlined" onClick={clearFilters}>
             Limpar filtros
           </Button>
           <span className="text-sm font-medium text-slate-500">
-            {loading ? "Carregando dados reais..." : `${dashboard.stats.total} tickets encontrados`}
+            {loading ? "Carregando..." : `${dashboard.stats.total} tickets encontrados`}
           </span>
         </div>
       </section>
@@ -312,7 +299,7 @@ export default function Dashboard() {
         </section>
 
         <section className="content-card rounded-md p-5">
-          <h3 className="mb-4 text-base font-extrabold text-slate-950">Tickets criados no periodo</h3>
+          <h3 className="mb-4 text-base font-extrabold text-slate-950">Tickets criados no período</h3>
           <div className="chart-grid relative h-60 overflow-hidden rounded-md px-5 py-4">
             <svg className="h-full w-full overflow-visible" viewBox="0 0 520 210" preserveAspectRatio="none">
               <polyline
@@ -364,7 +351,7 @@ export default function Dashboard() {
         </section>
 
         <section className="content-card rounded-md p-5">
-          <h3 className="mb-4 text-base font-extrabold text-slate-950">Tickets por Responsavel</h3>
+          <h3 className="mb-4 text-base font-extrabold text-slate-950">Tickets por Responsável</h3>
           {dashboard.ticketsByResponsible.length ? (
             <div className="space-y-5">
               {dashboard.ticketsByResponsible.map((item) => {
@@ -382,7 +369,7 @@ export default function Dashboard() {
               })}
             </div>
           ) : (
-            <EmptyState title="Nenhum responsavel encontrado" description="Os tickets filtrados ainda nao possuem responsaveis vinculados." />
+            <EmptyState title="Nenhum responsável encontrado" description="Os tickets filtrados ainda não possuem responsáveis vinculados." />
           )}
         </section>
       </div>
@@ -395,10 +382,10 @@ export default function Dashboard() {
               <TableHead>
                 <TableRow>
                   <TableCell>ID</TableCell>
-                  <TableCell>Titulo</TableCell>
+                  <TableCell>Título</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Prioridade</TableCell>
-                  <TableCell>Responsavel</TableCell>
+                  <TableCell>Responsável</TableCell>
                   <TableCell>Solicitante</TableCell>
                   <TableCell>Atualizado em</TableCell>
                 </TableRow>

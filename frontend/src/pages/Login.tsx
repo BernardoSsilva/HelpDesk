@@ -1,16 +1,19 @@
 import { Alert, Button, Checkbox, FormControlLabel, IconButton, TextField } from "@mui/material";
-import type { AxiosError } from "axios";
 import { Eye, EyeOff, Headphones } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../state/AuthContext";
+import { useSettings } from "../state/SettingsContext";
+import { getErrorMessage } from "../utils/errors";
 
 export default function Login() {
   const { isAuthenticated, loading, login } = useAuth();
+  const { settings } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
@@ -23,11 +26,12 @@ export default function Login() {
     setError("");
 
     try {
-      await login({ email, password });
-      navigate(location.state?.from?.pathname || "/dashboard", { replace: true });
+      await login({ email, password, remember });
+
+      const from = location.state?.from;
+      navigate(from ? `${from.pathname}${from.search ?? ""}` : "/dashboard", { replace: true });
     } catch (err) {
-      const axiosError = err as AxiosError<{ message?: string }>;
-      setError(axiosError.response?.data?.message || "Nao foi possivel entrar. Confira seu e-mail e senha.");
+      setError(getErrorMessage(err, "Não foi possível entrar. Confira seu e-mail e senha."));
     }
   };
 
@@ -39,7 +43,7 @@ export default function Login() {
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md border border-blue-400/60 text-blue-300">
               <Headphones className="h-8 w-8" />
             </div>
-            <h1 className="text-3xl font-extrabold">Help Desk</h1>
+            <h1 className="text-3xl font-extrabold">{settings.systemName}</h1>
             <p className="mt-2 text-sm text-slate-300">Sistema de Tickets</p>
           </div>
 
@@ -50,15 +54,17 @@ export default function Login() {
             </div>
 
             {error ? (
-              <Alert className="mb-4" severity="error">
+              <Alert className="mb-4" role="alert" severity="error">
                 {error}
               </Alert>
             ) : null}
 
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               <TextField
                 fullWidth
+                required
                 autoComplete="email"
+                autoFocus
                 label="E-mail"
                 placeholder="seu@email.com"
                 size="small"
@@ -68,6 +74,7 @@ export default function Login() {
               />
               <TextField
                 fullWidth
+                required
                 autoComplete="current-password"
                 label="Senha"
                 placeholder="********"
@@ -93,17 +100,26 @@ export default function Login() {
             </div>
 
             <div className="my-4 flex items-center justify-between gap-3">
-              <FormControlLabel control={<Checkbox size="small" />} label={<span className="text-sm">Lembrar de mim</span>} />
+              <FormControlLabel
+                control={<Checkbox checked={remember} size="small" onChange={(event) => setRemember(event.target.checked)} />}
+                label={<span className="text-sm">Lembrar de mim</span>}
+              />
             </div>
 
             <Button fullWidth disabled={loading} type="submit" variant="contained">
-              Entrar
+              {loading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
+
+          <p className="mt-6 text-center text-xs text-slate-300">
+            Precisa de ajuda? Fale com <a className="underline" href={`mailto:${settings.supportEmail}`}>{settings.supportEmail}</a>
+          </p>
         </section>
       </div>
 
-      <p className="pb-8 text-center text-xs text-slate-300">2026 Help Desk. Todos os direitos reservados.</p>
+      <p className="pb-8 text-center text-xs text-slate-300">
+        © {new Date().getFullYear()} {settings.systemName}. Todos os direitos reservados.
+      </p>
     </main>
   );
 }

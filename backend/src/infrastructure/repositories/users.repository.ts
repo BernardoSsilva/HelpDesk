@@ -1,4 +1,5 @@
 import type { UserEntity } from "../../domain/entities/user.entity.js";
+import type { UserRoleEnum } from "../../domain/enums/userRole.enum.js";
 import { prisma } from "../prisma.client.js";
 
 export class UserRepository {
@@ -23,10 +24,14 @@ export class UserRepository {
         })
     }
 
+    /** E-mails são tratados sem diferenciar maiúsculas/minúsculas. */
     public async findByEmail(email: string) {
-        return await prisma.user.findUnique({
+        return await prisma.user.findFirst({
             where: {
-                email,
+                email: {
+                    equals: email,
+                    mode: "insensitive",
+                },
             },
         })
     }
@@ -35,6 +40,27 @@ export class UserRepository {
         return await prisma.user.findMany({
             orderBy: {
                 name: "asc",
+            },
+        })
+    }
+
+    /** Lista mínima (id e nome) disponível para qualquer usuário autenticado. */
+    public async listDirectory() {
+        return await prisma.user.findMany({
+            orderBy: {
+                name: "asc",
+            },
+            select: {
+                id: true,
+                name: true,
+            },
+        })
+    }
+
+    public async countByRole(role: UserRoleEnum) {
+        return await prisma.user.count({
+            where: {
+                role,
             },
         })
     }
@@ -49,7 +75,7 @@ export class UserRepository {
                 name: entity.getUserName(),
                 password: entity.getPassword(),
                 role: entity.getUserRole(),
-                updatedAt: new Date
+                updatedAt: new Date()
             }
         })
     }

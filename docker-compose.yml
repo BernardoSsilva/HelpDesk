@@ -8,7 +8,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-ticket_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ticket_password}
     ports:
-      - "5432:5432"
+      # Só acessível a partir desta máquina (ex.: Prisma Studio); a rede interna do Docker não precisa dessa porta.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -29,11 +30,16 @@ services:
     environment:
       PORT: 8080
       DATABASE_URL: postgresql://${POSTGRES_USER:-ticket_user}:${POSTGRES_PASSWORD:-ticket_password}@postgres:5432/${POSTGRES_DB:-ticket_management}?schema=public
-      JWT_SECRET: ${JWT_SECRET:-ticket_management_secret}
+      # Obrigatório: quem conhece o segredo consegue forjar tokens de administrador.
+      JWT_SECRET: "${JWT_SECRET:?Defina JWT_SECRET no arquivo .env - gere um valor com openssl rand -hex 32}"
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@empresa.com}
       ADMIN_NAME: ${ADMIN_NAME:-Administrador}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
       FRONTEND_URL: http://localhost:${FRONTEND_PORT:-5173}
+      # O frontend (nginx) fica na frente da API: confia nele para descobrir o IP real do cliente (limite de login).
+      TRUST_PROXY: 1
+      LOGIN_RATE_LIMIT_MAX: ${LOGIN_RATE_LIMIT_MAX:-10}
+      LOGIN_RATE_LIMIT_WINDOW_MINUTES: ${LOGIN_RATE_LIMIT_WINDOW_MINUTES:-15}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
 
@@ -44,7 +50,8 @@ services:
     container_name: ticket-management-frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-5173}:80"
 

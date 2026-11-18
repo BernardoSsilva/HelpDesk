@@ -1,14 +1,15 @@
-import { UserEntity } from "../../../domain/entities/user.entity.js";
-import type { UserRoleEnum } from "../../../domain/enums/userRole.enum.js";
-import { UserRepository } from "../../repositories/users.repository.js";
 import bcrypt from "bcrypt";
+import { UserEntity } from "../../../domain/entities/user.entity.js";
+import { UserRoleEnum } from "../../../domain/enums/userRole.enum.js";
+import { ConflictError, NotFoundError } from "../../../domain/errors/domain.error.js";
+import { UserRepository } from "../../repositories/users.repository.js";
 
 type Input = {
     id: string;
-    userEmail?: string;
-    userName?: string;
-    password?: string;
-    userRole?: UserRoleEnum;
+    userEmail?: string | undefined;
+    userName?: string | undefined;
+    password?: string | undefined;
+    userRole?: UserRoleEnum | undefined;
 }
 
 export class UpdateUserUseCase {
@@ -18,15 +19,22 @@ export class UpdateUserUseCase {
         const user = await this.userRepository.findById(input.id)
 
         if (!user) {
-            throw new Error("User not found")
+            throw new NotFoundError("Usuário não encontrado")
         }
 
-        if (input.userEmail && input.userEmail !== user.email) {
+        if (input.userEmail) {
             const userWithEmail = await this.userRepository.findByEmail(input.userEmail)
 
-            if (userWithEmail) {
-                throw new Error("User email already exists")
+            if (userWithEmail && userWithEmail.id !== user.id) {
+                throw new ConflictError("Já existe um usuário com este e-mail")
             }
+        }
+
+        const isDemotingAdmin =
+            user.role === UserRoleEnum.ADMIN && input.userRole !== undefined && input.userRole !== UserRoleEnum.ADMIN
+
+        if (isDemotingAdmin && (await this.userRepository.countByRole(UserRoleEnum.ADMIN)) <= 1) {
+            throw new ConflictError("Não é possível rebaixar o último administrador")
         }
 
         const entity = new UserEntity({

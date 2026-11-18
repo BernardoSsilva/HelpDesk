@@ -1,23 +1,22 @@
 {
-  "name": "backend",
+  "name": "helpdesk-backend",
   "version": "1.0.0",
-  "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
-    "build": "tsc",
-    "docker:start": "npm run prisma:deploy && npm run seed && npm run start",
+    "start": "node --import tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "docker:start": "npm run prisma:deploy && npm run seed && exec node --import tsx src/server.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "tsx src/seed.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "node --import tsx --test \"tests/unit/**/*.test.ts\"",
+    "test:integration": "node --import tsx --test --test-concurrency=1 \"tests/integration/**/*.test.ts\""
   },
   "type": "module",
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "description": "API do Help Desk (Express + Prisma + PostgreSQL)",
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
@@ -25,8 +24,10 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.4",
+    "helmet": "^8.3.0",
     "pg": "^8.22.0",
-    "uuid": "^14.0.1"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
@@ -37,5 +38,6 @@
     "prisma": "^7.8.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
-  }
+  },
+  "private": true
 }

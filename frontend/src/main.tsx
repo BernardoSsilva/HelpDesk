@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import { AuthProvider } from "./state/AuthContext";
+import { SettingsProvider } from "./state/SettingsContext";
 import App from "./App";
 import "./styles.css";
 
@@ -46,16 +47,18 @@ const theme = createTheme({
 const root = document.getElementById("root");
 
 if (!root) {
-  throw new Error("Elemento root nao encontrado");
+  throw new Error("Elemento root não encontrado");
 }
 
 ReactDOM.createRoot(root).render(
   <React.StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <SettingsProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </SettingsProvider>
     </ThemeProvider>
   </React.StrictMode>,
 );

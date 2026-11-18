@@ -26,6 +26,10 @@ function encode(value: object) {
     return Buffer.from(JSON.stringify(value)).toString("base64url")
 }
 
+function decode(value: string): unknown {
+    return JSON.parse(Buffer.from(value, "base64url").toString("utf-8"))
+}
+
 function sign(value: string) {
     return createHmac("sha256", getJwtSecret())
         .update(value)
@@ -41,10 +45,26 @@ export function signJwt(payload: Omit<JwtPayload, "exp">, expiresInSeconds = 60 
     return `${unsignedToken}.${sign(unsignedToken)}`
 }
 
-export function verifyJwt(token: string) {
-    const [encodedHeader, encodedPayload, signature] = token.split(".")
+function isJwtPayload(value: unknown): value is JwtPayload {
+    if (typeof value !== "object" || value === null) {
+        return false
+    }
 
-    if (!encodedHeader || !encodedPayload || !signature) {
+    const candidate = value as Record<string, unknown>
+
+    return (
+        typeof candidate["sub"] === "string" &&
+        typeof candidate["email"] === "string" &&
+        typeof candidate["role"] === "string" &&
+        typeof candidate["exp"] === "number"
+    )
+}
+
+/** Valida assinatura, algoritmo, formato e expiração. Lança `Error` se algo falhar. */
+export function verifyJwt(token: string) {
+    const [encodedHeader, encodedPayload, signature, ...rest] = token.split(".")
+
+    if (!encodedHeader || !encodedPayload || !signature || rest.length) {
         throw new Error("Invalid token")
     }
 
@@ -60,7 +80,17 @@ export function verifyJwt(token: string) {
         throw new Error("Invalid token")
     }
 
-    const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf-8")) as JwtPayload
+    const decodedHeader = decode(encodedHeader) as { alg?: unknown }
+
+    if (decodedHeader.alg !== header.alg) {
+        throw new Error("Invalid token")
+    }
+
+    const payload = decode(encodedPayload)
+
+    if (!isJwtPayload(payload)) {
+        throw new Error("Invalid token")
+    }
 
     if (payload.exp < Math.floor(Date.now() / 1000)) {
         throw new Error("Expired token")

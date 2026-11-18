@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from "node:crypto";
 
 export class BaseEntity {
     private id: string;
@@ -6,8 +6,8 @@ export class BaseEntity {
     public updatedAt!: Date | null;
 
     constructor(id?: string) {
-        this.id = id ?? uuidv4();
-        this.createdAt = new Date;
+        this.id = id ?? randomUUID();
+        this.createdAt = new Date();
     }
 
     public getId() {

@@ -1,33 +1,60 @@
 import { TicketEntity } from "../../../domain/entities/ticket.entity.js";
 import { TicketHistoryEntity } from "../../../domain/entities/ticketHistory.entity.js";
+import type { TicketDepartmentEnum } from "../../../domain/enums/ticketDepartment.enum.js";
 import { TicketHistoryActionEnum } from "../../../domain/enums/ticketHistoryAction.enum.js";
 import type { TicketPriorityEnum } from "../../../domain/enums/ticketPriority.enum.js";
 import type { TicketStatusEnum } from "../../../domain/enums/ticketStatus.enum.js";
-import { TicketHistoryRepository } from "../../repositories/ticketHistory.repository.js";
+import { ForbiddenError, NotFoundError, ValidationError } from "../../../domain/errors/domain.error.js";
+import { canEditTicket, type Actor } from "../../../domain/policies/ticket.policy.js";
 import { TicketRepository } from "../../repositories/tickets.repository.js";
+import { UserRepository } from "../../repositories/users.repository.js";
 
 type Input = {
     id: string;
-    changedByUserId: string;
-    title?: string;
-    description?: string;
-    priority?: TicketPriorityEnum;
-    status?: TicketStatusEnum;
-    responsibleId?: string | null;
-    comment?: string;
+    actor: Actor;
+    title?: string | undefined;
+    description?: string | undefined;
+    priority?: TicketPriorityEnum | undefined;
+    status?: TicketStatusEnum | undefined;
+    department?: TicketDepartmentEnum | null | undefined;
+    responsibleId?: string | null | undefined;
+    comment?: string | undefined;
+}
+
+type CurrentTicket = {
+    title: string;
+    description: string;
+    priority: string;
+    status: string;
+    department: string | null;
+    responsibleId: string | null;
 }
 
 export class UpdateTicketUseCase {
     constructor(
         private readonly ticketRepository = new TicketRepository(),
-        private readonly ticketHistoryRepository = new TicketHistoryRepository(),
+        private readonly userRepository = new UserRepository(),
     ) {}
 
     public async execute(input: Input) {
         const ticket = await this.ticketRepository.findById(input.id)
 
         if (!ticket) {
-            throw new Error("Ticket not found")
+            throw new NotFoundError("Ticket não encontrado")
+        }
+
+        if (!canEditTicket(input.actor, ticket)) {
+            throw new ForbiddenError("Você não tem permissão para alterar este ticket")
+        }
+
+        if (input.responsibleId && input.responsibleId !== ticket.responsibleId) {
+            const responsible = await this.userRepository.findById(input.responsibleId)
+
+            if (!responsible) {
+                throw new ValidationError("Responsável não encontrado", [
+                    { field: "responsibleId", message: "Responsável não encontrado" },
+                ])
+            }
         }
 
         const entity = new TicketEntity({
@@ -36,84 +63,57 @@ export class UpdateTicketUseCase {
             description: input.description ?? ticket.description,
             requesterId: ticket.requesterId,
             responsibleId: input.responsibleId !== undefined ? input.responsibleId : ticket.responsibleId,
+            department: input.department !== undefined ? input.department : (ticket.department as TicketDepartmentEnum | null),
             priority: input.priority ?? ticket.priority as TicketPriorityEnum,
             status: input.status ?? ticket.status as TicketStatusEnum,
         })
 
-        const updatedTicket = await this.ticketRepository.updateTicket(entity)
-        const historyItems = this.buildHistoryItems(input, ticket)
-
-        for (const history of historyItems) {
-            await this.ticketHistoryRepository.createTicketHistory(history)
-        }
-
-        return updatedTicket
+        return await this.ticketRepository.updateWithHistory(entity, this.buildHistoryItems(input, ticket))
     }
 
-    private buildHistoryItems(input: Input, currentTicket: {
-        title: string;
-        description: string;
-        priority: string;
-        status: string;
-        responsibleId: string | null;
-    }) {
+    private buildHistoryItems(input: Input, currentTicket: CurrentTicket) {
         const historyItems: TicketHistoryEntity[] = []
+        const changedByUserId = input.actor.id
 
-        if (input.title && input.title !== currentTicket.title) {
+        const record = (action: TicketHistoryActionEnum, previousValue: string | null, newValue: string | null) => {
             historyItems.push(new TicketHistoryEntity({
                 ticketId: input.id,
-                action: TicketHistoryActionEnum.TITULO_ALTERADO,
-                changedByUserId: input.changedByUserId,
-                previousValue: currentTicket.title,
-                newValue: input.title,
+                action,
+                changedByUserId,
+                previousValue,
+                newValue,
             }))
+        }
+
+        if (input.title && input.title !== currentTicket.title) {
+            record(TicketHistoryActionEnum.TITULO_ALTERADO, currentTicket.title, input.title)
         }
 
         if (input.description && input.description !== currentTicket.description) {
-            historyItems.push(new TicketHistoryEntity({
-                ticketId: input.id,
-                action: TicketHistoryActionEnum.DESCRICAO_ALTERADA,
-                changedByUserId: input.changedByUserId,
-                previousValue: currentTicket.description,
-                newValue: input.description,
-            }))
+            record(TicketHistoryActionEnum.DESCRICAO_ALTERADA, currentTicket.description, input.description)
         }
 
         if (input.priority && input.priority !== currentTicket.priority) {
-            historyItems.push(new TicketHistoryEntity({
-                ticketId: input.id,
-                action: TicketHistoryActionEnum.PRIORIDADE_ALTERADA,
-                changedByUserId: input.changedByUserId,
-                previousValue: currentTicket.priority,
-                newValue: input.priority,
-            }))
+            record(TicketHistoryActionEnum.PRIORIDADE_ALTERADA, currentTicket.priority, input.priority)
         }
 
         if (input.status && input.status !== currentTicket.status) {
-            historyItems.push(new TicketHistoryEntity({
-                ticketId: input.id,
-                action: TicketHistoryActionEnum.STATUS_ALTERADO,
-                changedByUserId: input.changedByUserId,
-                previousValue: currentTicket.status,
-                newValue: input.status,
-            }))
+            record(TicketHistoryActionEnum.STATUS_ALTERADO, currentTicket.status, input.status)
+        }
+
+        if (input.department !== undefined && input.department !== currentTicket.department) {
+            record(TicketHistoryActionEnum.DEPARTAMENTO_ALTERADO, currentTicket.department, input.department)
         }
 
         if (input.responsibleId !== undefined && input.responsibleId !== currentTicket.responsibleId) {
-            historyItems.push(new TicketHistoryEntity({
-                ticketId: input.id,
-                action: TicketHistoryActionEnum.RESPONSAVEL_ALTERADO,
-                changedByUserId: input.changedByUserId,
-                previousValue: currentTicket.responsibleId,
-                newValue: input.responsibleId,
-            }))
+            record(TicketHistoryActionEnum.RESPONSAVEL_ALTERADO, currentTicket.responsibleId, input.responsibleId)
         }
 
         if (input.comment) {
             historyItems.push(new TicketHistoryEntity({
                 ticketId: input.id,
                 action: TicketHistoryActionEnum.COMENTARIO_ADICIONADO,
-                changedByUserId: input.changedByUserId,
+                changedByUserId,
                 comment: input.comment,
             }))
         }

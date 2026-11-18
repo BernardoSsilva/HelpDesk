@@ -10,171 +10,99 @@ import {
     ListTicketsUseCase,
     UpdateTicketUseCase,
 } from "../../infrastructure/usecases/tickets/index.js";
-import { authMiddleware } from "../middlewares/auth.middleware.js";
+import { authMiddleware, requireAuthUser } from "../middlewares/auth.middleware.js";
+import { addCommentSchema, createTicketSchema, parse, parseId, updateTicketSchema } from "../validation/schemas.js";
 
 const ticketsRoutes = Router()
 
 ticketsRoutes.use(authMiddleware)
 
-function getAuthUserId(authUser: Express.Request["authUser"]) {
-    if (!authUser) {
-        throw new Error("Authenticated user not found")
-    }
+ticketsRoutes.post("/", async (req, res) => {
+    const actor = requireAuthUser(req)
+    const { title, description, priority, department, requesterId, responsibleId } = parse(createTicketSchema, req.body)
 
-    return authUser.id
-}
+    const ticket = await new CreateTicketUseCase().execute({
+        actor,
+        title,
+        description,
+        priority,
+        department,
+        requesterId,
+        responsibleId,
+    })
 
-function getParam(value: string | string[] | undefined, name: string) {
-    if (typeof value !== "string") {
-        throw new Error(`${name} is required`)
-    }
-
-    return value
-}
-
-ticketsRoutes.post("/", authMiddleware, async (req, res) => {
-    try {
-        const authUserId = getAuthUserId(req.authUser)
-        const { title, description, requesterId, priority, responsibleId } = req.body
-
-        const createTicketUseCase = new CreateTicketUseCase()
-        const ticket = await createTicketUseCase.execute({
-            title,
-            description,
-            requesterId: requesterId ?? authUserId,
-            priority,
-            responsibleId,
-            changedByUserId: authUserId,
-        })
-
-        res.status(201).json(ticket)
-    } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : "Error creating ticket" })
-    }
+    res.status(201).json(ticket)
 })
 
-ticketsRoutes.get("/", authMiddleware, async (_req, res) => {
-    try {
-        const listTicketsUseCase = new ListTicketsUseCase()
-        const tickets = await listTicketsUseCase.execute()
-
-        res.status(200).json(tickets)
-    } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : "Error listing tickets" })
-    }
+ticketsRoutes.get("/", async (_req, res) => {
+    res.status(200).json(await new ListTicketsUseCase().execute())
 })
 
-ticketsRoutes.get("/requester/:requesterId", authMiddleware, async (req, res) => {
-    try {
-        const requesterId = getParam(req.params.requesterId, "Requester id")
+ticketsRoutes.get("/requester/:requesterId", async (req, res) => {
+    const requesterId = parseId(req.params.requesterId, "requesterId")
 
-        const findTicketsByRequesterIdUseCase = new FindTicketsByRequesterIdUseCase()
-        const tickets = await findTicketsByRequesterIdUseCase.execute(requesterId)
-
-        res.status(200).json(tickets)
-    } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : "Error finding tickets" })
-    }
+    res.status(200).json(await new FindTicketsByRequesterIdUseCase().execute(requesterId))
 })
 
-ticketsRoutes.get("/responsible/:responsibleId", authMiddleware, async (req, res) => {
-    try {
-        const responsibleId = getParam(req.params.responsibleId, "Responsible id")
+ticketsRoutes.get("/responsible/:responsibleId", async (req, res) => {
+    const responsibleId = parseId(req.params.responsibleId, "responsibleId")
 
-        const findTicketsByResponsibleIdUseCase = new FindTicketsByResponsibleIdUseCase()
-        const tickets = await findTicketsByResponsibleIdUseCase.execute(responsibleId)
-
-        res.status(200).json(tickets)
-    } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : "Error finding tickets" })
-    }
+    res.status(200).json(await new FindTicketsByResponsibleIdUseCase().execute(responsibleId))
 })
 
-ticketsRoutes.get("/:id/history", authMiddleware, async (req, res) => {
-    try {
-        const id = getParam(req.params.id, "Ticket id")
+ticketsRoutes.get("/:id/history", async (req, res) => {
+    const id = parseId(req.params.id)
 
-        const findTicketHistoryByTicketIdUseCase = new FindTicketHistoryByTicketIdUseCase()
-        const history = await findTicketHistoryByTicketIdUseCase.execute(id)
-
-        res.status(200).json(history)
-    } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : "Error finding ticket history" })
-    }
+    res.status(200).json(await new FindTicketHistoryByTicketIdUseCase().execute(id))
 })
 
-ticketsRoutes.post("/:id/comments", authMiddleware, async (req, res) => {
-    try {
-        const authUserId = getAuthUserId(req.authUser)
-        const id = getParam(req.params.id, "Ticket id")
-        const { comment } = req.body
+ticketsRoutes.post("/:id/comments", async (req, res) => {
+    const actor = requireAuthUser(req)
+    const id = parseId(req.params.id)
+    const { comment } = parse(addCommentSchema, req.body)
 
-        const addTicketCommentUseCase = new AddTicketCommentUseCase()
-        const history = await addTicketCommentUseCase.execute({
-            ticketId: id,
-            changedByUserId: authUserId,
-            comment,
-        })
+    const history = await new AddTicketCommentUseCase().execute({
+        ticketId: id,
+        changedByUserId: actor.id,
+        comment,
+    })
 
-        res.status(201).json(history)
-    } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : "Error adding ticket comment" })
-    }
+    res.status(201).json(history)
 })
 
-ticketsRoutes.get("/:id", authMiddleware, async (req, res) => {
-    try {
-        const id = getParam(req.params.id, "Ticket id")
+ticketsRoutes.get("/:id", async (req, res) => {
+    const id = parseId(req.params.id)
 
-        const findTicketByIdUseCase = new FindTicketByIdUseCase()
-        const ticket = await findTicketByIdUseCase.execute(id)
-
-        if (!ticket) {
-            res.status(404).json({ message: "Ticket not found" })
-            return
-        }
-
-        res.status(200).json(ticket)
-    } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : "Error finding ticket" })
-    }
+    res.status(200).json(await new FindTicketByIdUseCase().execute(id))
 })
 
-ticketsRoutes.put("/:id", authMiddleware, async (req, res) => {
-    try {
-        const authUserId = getAuthUserId(req.authUser)
-        const id = getParam(req.params.id, "Ticket id")
-        const { title, description, priority, status, responsibleId, comment } = req.body
+ticketsRoutes.put("/:id", async (req, res) => {
+    const actor = requireAuthUser(req)
+    const id = parseId(req.params.id)
+    const { title, description, priority, status, department, responsibleId, comment } = parse(updateTicketSchema, req.body)
 
-        const updateTicketUseCase = new UpdateTicketUseCase()
-        const ticket = await updateTicketUseCase.execute({
-            id,
-            changedByUserId: authUserId,
-            title,
-            description,
-            priority,
-            status,
-            responsibleId,
-            comment,
-        })
+    const ticket = await new UpdateTicketUseCase().execute({
+        id,
+        actor,
+        title,
+        description,
+        priority,
+        status,
+        department,
+        responsibleId,
+        comment,
+    })
 
-        res.status(200).json(ticket)
-    } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : "Error updating ticket" })
-    }
+    res.status(200).json(ticket)
 })
 
-ticketsRoutes.delete("/:id", authMiddleware, async (req, res) => {
-    try {
-        const id = getParam(req.params.id, "Ticket id")
+ticketsRoutes.delete("/:id", async (req, res) => {
+    const actor = requireAuthUser(req)
+    const id = parseId(req.params.id)
 
-        const deleteTicketUseCase = new DeleteTicketUseCase()
-        await deleteTicketUseCase.execute(id)
+    await new DeleteTicketUseCase().execute({ id, actor })
 
-        res.status(204).send()
-    } catch (error) {
-        res.status(400).json({ message: error instanceof Error ? error.message : "Error deleting ticket" })
-    }
+    res.status(204).send()
 })
 
 export { ticketsRoutes };
