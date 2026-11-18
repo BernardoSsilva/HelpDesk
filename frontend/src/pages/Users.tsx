@@ -7,13 +7,9 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
   IconButton,
   InputAdornment,
-  InputLabel,
-  MenuItem,
   Pagination,
-  Select,
   Table,
   TableBody,
   TableCell,
@@ -23,21 +19,26 @@ import {
   TextField,
   Tooltip,
 } from "@mui/material";
-import type { SelectChangeEvent } from "@mui/material";
 import { Pencil, Plus, Search, ShieldCheck, SlidersHorizontal, Trash2, UserRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { usersApi } from "../api/client";
+import ConfirmDialog from "../components/ConfirmDialog";
 import EmptyState from "../components/EmptyState";
 import SectionHeader from "../components/SectionHeader";
+import SelectField from "../components/SelectField";
 import { roleOptions } from "../data/constants";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { formatDateTime, normalizeText } from "../utils/formatters";
+import { useAuth } from "../state/AuthContext";
 import type { CreateUserPayload, UpdateUserPayload, User, UserRole } from "../types";
+import { getErrorMessage } from "../utils/errors";
+import { formatDateTime, normalizeText } from "../utils/formatters";
 
 type UserForm = CreateUserPayload;
 
 const rowsPerPage = 8;
 const emptyUsers: User[] = [];
+const PASSWORD_MIN = 8;
+const PASSWORD_MAX_BYTES = 72;
 
 const emptyForm: UserForm = {
   userName: "",
@@ -64,6 +65,7 @@ function RoleBadge({ value }: { value: UserRole }) {
 }
 
 export default function Users() {
+  const { user: currentUser } = useAuth();
   const { data: users, error, loading, refresh } = useAsyncData<User[]>(() => usersApi.list(), [], emptyUsers);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<UserRole | "">("");
@@ -73,7 +75,9 @@ export default function Users() {
   const [form, setForm] = useState<UserForm>(emptyForm);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [removingId, setRemovingId] = useState("");
+  const [userToRemove, setUserToRemove] = useState<User | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
@@ -85,7 +89,8 @@ export default function Users() {
   }, [query, role, users]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / rowsPerPage));
-  const pageUsers = filteredUsers.slice((page - 1) * rowsPerPage, page * rowsPerPage);
+  const currentPage = Math.min(page, totalPages);
+  const pageUsers = filteredUsers.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const openCreate = () => {
     setEditingUser(null);
@@ -113,11 +118,12 @@ export default function Users() {
   };
 
   const validateForm = () => {
-    if (!form.userName.trim()) return "Informe o nome do usuario.";
-    if (!form.userEmail.trim()) return "Informe o e-mail do usuario.";
-    if (!/^\S+@\S+\.\S+$/.test(form.userEmail.trim())) return "Informe um e-mail valido.";
-    if (!editingUser && !form.password.trim()) return "Informe a senha inicial.";
-    if (form.password && form.password.length < 6) return "A senha deve ter pelo menos 6 caracteres.";
+    if (form.userName.trim().length < 2) return "Informe o nome do usuário (mínimo de 2 caracteres).";
+    if (!form.userEmail.trim()) return "Informe o e-mail do usuário.";
+    if (!/^\S+@\S+\.\S+$/.test(form.userEmail.trim())) return "Informe um e-mail válido.";
+    if (!editingUser && !form.password) return "Informe a senha inicial.";
+    if (form.password && form.password.length < PASSWORD_MIN) return `A senha deve ter pelo menos ${PASSWORD_MIN} caracteres.`;
+    if (new TextEncoder().encode(form.password).length > PASSWORD_MAX_BYTES) return `A senha deve ter no máximo ${PASSWORD_MAX_BYTES} bytes.`;
 
     return "";
   };
@@ -157,44 +163,60 @@ export default function Users() {
       setDialogOpen(false);
       await refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Nao foi possivel salvar o usuario.";
-      setFormError(message);
+      setFormError(getErrorMessage(err, "Não foi possível salvar o usuário."));
     } finally {
       setSaving(false);
     }
   };
 
-  const removeUser = async (user: User) => {
-    const shouldRemove = window.confirm(`Excluir ${user.name}? Esta acao nao pode ser desfeita.`);
-
-    if (!shouldRemove) {
+  const confirmRemove = async () => {
+    if (!userToRemove) {
       return;
     }
 
-    setRemovingId(user.id);
+    setRemoving(true);
+    setActionError("");
 
     try {
-      await usersApi.remove(user.id);
+      await usersApi.remove(userToRemove.id);
+      setUserToRemove(null);
       await refresh();
+    } catch (err) {
+      setUserToRemove(null);
+      setActionError(getErrorMessage(err, "Não foi possível excluir o usuário."));
     } finally {
-      setRemovingId("");
+      setRemoving(false);
     }
   };
 
   return (
     <div>
       <SectionHeader
-        title="Usuarios"
+        title="Usuários"
         actions={
           <Button startIcon={<Plus className="h-4 w-4" />} variant="contained" onClick={openCreate}>
-            Novo Usuario
+            Novo Usuário
           </Button>
         }
       />
 
       {error ? (
-        <Alert className="mb-5" severity="info">
+        <Alert
+          action={
+            <Button color="inherit" size="small" onClick={() => void refresh()}>
+              Tentar de novo
+            </Button>
+          }
+          className="mb-5"
+          severity="error"
+        >
           {error}
+        </Alert>
+      ) : null}
+
+      {actionError ? (
+        <Alert className="mb-5" severity="error" onClose={() => setActionError("")}>
+          {actionError}
         </Alert>
       ) : null}
 
@@ -210,6 +232,7 @@ export default function Users() {
               setPage(1);
             }}
             slotProps={{
+              htmlInput: { "aria-label": "Buscar usuários" },
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
@@ -220,38 +243,29 @@ export default function Users() {
             }}
           />
 
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Perfil</InputLabel>
-            <Select
-              label="Perfil"
-              value={role}
-              onChange={(event: SelectChangeEvent) => {
-                setRole(event.target.value as UserRole | "");
-                setPage(1);
-              }}
-            >
-              <MenuItem value="">Todos</MenuItem>
-              {roleOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <SelectField
+            emptyLabel="Todos"
+            label="Perfil"
+            minWidth={180}
+            options={roleOptions}
+            value={role}
+            onChange={(value) => {
+              setRole(value as UserRole | "");
+              setPage(1);
+            }}
+          />
 
           <Button startIcon={<SlidersHorizontal className="h-4 w-4" />} variant="outlined" onClick={clearFilters}>
             Limpar filtros
           </Button>
 
-          <span className="text-sm font-medium text-slate-500">
-            {loading ? "Carregando usuarios reais..." : `${filteredUsers.length} usuarios encontrados`}
-          </span>
+          <span className="text-sm font-medium text-slate-500">{loading ? "Carregando..." : `${filteredUsers.length} usuários encontrados`}</span>
         </div>
 
         {loading && !users.length ? (
-          <div className="flex items-center justify-center gap-3 py-12 text-sm font-semibold text-slate-500">
+          <div className="flex items-center justify-center gap-3 py-12 text-sm font-semibold text-slate-500" role="status">
             <CircularProgress size={22} />
-            Carregando usuarios...
+            Carregando usuários...
           </div>
         ) : pageUsers.length ? (
           <>
@@ -264,66 +278,75 @@ export default function Users() {
                     <TableCell>Perfil</TableCell>
                     <TableCell>Criado em</TableCell>
                     <TableCell>Atualizado em</TableCell>
-                    <TableCell align="right">Acoes</TableCell>
+                    <TableCell align="right">Ações</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {pageUsers.map((user) => (
-                    <TableRow hover key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar sx={{ width: 28, height: 28 }}>{user.name?.charAt(0).toUpperCase() || "U"}</Avatar>
-                          <span className="font-semibold">{user.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <RoleBadge value={user.role} />
-                      </TableCell>
-                      <TableCell>{formatDateTime(user.createdAt)}</TableCell>
-                      <TableCell>{formatDateTime(user.updatedAt)}</TableCell>
-                      <TableCell align="right">
-                        <Tooltip title="Editar">
-                          <IconButton aria-label="Editar usuario" onClick={() => openEdit(user)} size="small">
-                            <Pencil className="h-4 w-4" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Excluir">
-                          <span>
-                            <IconButton aria-label="Excluir usuario" color="error" disabled={removingId === user.id} onClick={() => removeUser(user)} size="small">
-                              <Trash2 className="h-4 w-4" />
+                  {pageUsers.map((user) => {
+                    const isSelf = user.id === currentUser?.id;
+
+                    return (
+                      <TableRow hover key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar sx={{ width: 28, height: 28 }}>{user.name?.charAt(0).toUpperCase() || "U"}</Avatar>
+                            <span className="font-semibold">{user.name}</span>
+                            {isSelf ? <span className="rounded bg-blue-50 px-1.5 py-0.5 text-xs font-bold text-blue-700">você</span> : null}
+                          </div>
+                        </TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <RoleBadge value={user.role} />
+                        </TableCell>
+                        <TableCell>{formatDateTime(user.createdAt)}</TableCell>
+                        <TableCell>{formatDateTime(user.updatedAt)}</TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Editar">
+                            <IconButton aria-label={`Editar ${user.name}`} onClick={() => openEdit(user)} size="small">
+                              <Pencil className="h-4 w-4" />
                             </IconButton>
-                          </span>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          </Tooltip>
+                          <Tooltip title={isSelf ? "Você não pode excluir a própria conta" : "Excluir"}>
+                            <span>
+                              <IconButton aria-label={`Excluir ${user.name}`} color="error" disabled={isSelf} onClick={() => setUserToRemove(user)} size="small">
+                                <Trash2 className="h-4 w-4" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>
 
             <div className="mt-5 flex justify-center">
-              <Pagination color="primary" count={totalPages} page={page} onChange={(_, value) => setPage(value)} />
+              <Pagination color="primary" count={totalPages} page={currentPage} onChange={(_, value) => setPage(value)} />
             </div>
           </>
-        ) : (
-          <EmptyState title="Nenhum usuario encontrado" description="Ajuste os filtros ou crie um novo usuario para continuar." />
+        ) : error ? null : (
+          <EmptyState title="Nenhum usuário encontrado" description="Ajuste os filtros ou crie um novo usuário para continuar." />
         )}
       </section>
 
       <Dialog fullWidth maxWidth="sm" open={dialogOpen} onClose={() => (saving ? null : setDialogOpen(false))}>
-        <DialogTitle>{editingUser ? "Editar Usuario" : "Novo Usuario"}</DialogTitle>
-        <DialogContent className="space-y-4 pt-3">
+        <DialogTitle>{editingUser ? "Editar Usuário" : "Novo Usuário"}</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
           {formError ? <Alert severity="error">{formError}</Alert> : null}
           <TextField
             fullWidth
+            required
             label="Nome"
             size="small"
             value={form.userName}
             onChange={(event) => setForm((current) => ({ ...current, userName: event.target.value }))}
+            slotProps={{ htmlInput: { maxLength: 100 } }}
           />
           <TextField
             fullWidth
+            required
+            autoComplete="off"
             label="E-mail"
             size="small"
             type="email"
@@ -332,23 +355,22 @@ export default function Users() {
           />
           <TextField
             fullWidth
-            helperText={editingUser ? "Deixe em branco para manter a senha atual." : ""}
+            required={!editingUser}
+            autoComplete="new-password"
+            helperText={editingUser ? "Deixe em branco para manter a senha atual." : `Mínimo de ${PASSWORD_MIN} caracteres.`}
             label={editingUser ? "Nova senha" : "Senha"}
             size="small"
             type="password"
             value={form.password}
             onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
           />
-          <FormControl fullWidth size="small">
-            <InputLabel>Perfil</InputLabel>
-            <Select label="Perfil" value={form.userRole} onChange={(event: SelectChangeEvent) => setForm((current) => ({ ...current, userRole: event.target.value as UserRole }))}>
-              {roleOptions.map((roleOption) => (
-                <MenuItem key={roleOption.value} value={roleOption.value}>
-                  {roleOption.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <SelectField
+            fullWidth
+            label="Perfil"
+            options={roleOptions}
+            value={form.userRole}
+            onChange={(value) => setForm((current) => ({ ...current, userRole: value as UserRole }))}
+          />
         </DialogContent>
         <DialogActions>
           <Button disabled={saving} onClick={() => setDialogOpen(false)}>
@@ -359,6 +381,17 @@ export default function Users() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        confirmLabel="Excluir"
+        description={`Excluir ${userToRemove?.name ?? "este usuário"}? Esta ação não pode ser desfeita. Usuários com tickets ou atividades registradas não podem ser excluídos.`}
+        destructive
+        loading={removing}
+        open={Boolean(userToRemove)}
+        title="Excluir usuário"
+        onCancel={() => setUserToRemove(null)}
+        onConfirm={confirmRemove}
+      />
     </div>
   );
 }

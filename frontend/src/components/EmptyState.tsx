@@ -5,7 +5,7 @@ type EmptyStateProps = {
   description?: string;
 };
 
-export default function EmptyState({ title = "Nada encontrado", description = "Os dados aparecerao aqui quando estiverem disponiveis." }: EmptyStateProps) {
+export default function EmptyState({ title = "Nada encontrado", description = "Os dados aparecerão aqui quando estiverem disponíveis." }: EmptyStateProps) {
   return (
     <div className="flex min-h-56 flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-white p-8 text-center">
       <Inbox className="h-9 w-9 text-slate-400" />

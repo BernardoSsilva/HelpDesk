@@ -1,30 +1,31 @@
-import { Alert, Button, FormControl, InputLabel, MenuItem, Select, TextField } from "@mui/material";
-import type { SelectChangeEvent } from "@mui/material";
-import type { AxiosError } from "axios";
+import { Alert, Button, TextField } from "@mui/material";
 import { ArrowLeft, Plus } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ticketsApi, usersApi } from "../api/client";
 import SectionHeader from "../components/SectionHeader";
+import SelectField from "../components/SelectField";
 import { departmentOptions, priorityOptions } from "../data/constants";
-import { fallbackUsers } from "../data/fallback";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { useAuth } from "../state/AuthContext";
-import { priorityLabel } from "../utils/formatters";
-import type { TicketPriority } from "../types";
+import type { DirectoryUser, TicketDepartment, TicketPriority } from "../types";
+import { getErrorMessage } from "../utils/errors";
+import { departmentLabel, priorityLabel } from "../utils/formatters";
 
 type NewTicketForm = {
   title: string;
   description: string;
-  department: string;
+  department: TicketDepartment | "";
   priority: TicketPriority | "";
   responsibleId: string;
 };
 
+const TITLE_MAX = 150;
+const DESCRIPTION_MAX = 5000;
+const noUsers: DirectoryUser[] = [];
+
 export default function NewTicket() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { data: users } = useAsyncData(() => usersApi.list(), [], fallbackUsers);
+  const { data: users, error: usersError } = useAsyncData(() => usersApi.directory(), [], noUsers);
   const [form, setForm] = useState<NewTicketForm>({
     title: "",
     description: "",
@@ -45,25 +46,38 @@ export default function NewTicket() {
     event.preventDefault();
     setError("");
 
-    if (!form.priority) {
-      setError("Selecione uma prioridade para criar o ticket.");
+    const title = form.title.trim();
+    const description = form.description.trim();
+
+    if (title.length < 3) {
+      setError("O título deve ter pelo menos 3 caracteres.");
+      return;
+    }
+
+    if (!description) {
+      setError("Descreva o problema ou a solicitação.");
+      return;
+    }
+
+    if (!form.priority || !form.department) {
+      setError("Selecione o departamento e a prioridade para criar o ticket.");
       return;
     }
 
     setLoading(true);
 
     try {
+      // O solicitante é sempre o usuário autenticado: a API define isso, não o formulário.
       const createdTicket = await ticketsApi.create({
-        title: form.title,
-        description: form.description,
+        title,
+        description,
         priority: form.priority,
-        requesterId: user?.id,
+        department: form.department,
         responsibleId: form.responsibleId || null,
       });
       navigate(`/tickets/${createdTicket.id}`);
     } catch (err) {
-      const axiosError = err as AxiosError<{ message?: string }>;
-      setError(axiosError.response?.data?.message || "Nao foi possivel criar o ticket.");
+      setError(getErrorMessage(err, "Não foi possível criar o ticket."));
     } finally {
       setLoading(false);
     }
@@ -83,72 +97,70 @@ export default function NewTicket() {
       <div className="mx-auto grid max-w-5xl gap-5 lg:grid-cols-[1fr_300px]">
         <form className="content-card rounded-md p-5" onSubmit={handleSubmit}>
           {error ? (
-            <Alert className="mb-4" severity="error">
+            <Alert className="mb-4" role="alert" severity="error">
               {error}
             </Alert>
           ) : null}
 
-          <div className="space-y-5">
+          {usersError ? (
+            <Alert className="mb-4" severity="warning">
+              Não foi possível carregar a lista de responsáveis. Você ainda pode criar o ticket sem responsável.
+            </Alert>
+          ) : null}
+
+          <div className="flex flex-col gap-5">
             <TextField
               fullWidth
               required
-              label="Titulo"
-              placeholder="Digite um titulo para o ticket"
+              helperText={`${form.title.length}/${TITLE_MAX}`}
+              label="Título"
+              placeholder="Digite um título para o ticket"
               size="small"
               value={form.title}
               onChange={(event) => updateForm("title", event.target.value)}
+              slotProps={{ htmlInput: { maxLength: TITLE_MAX } }}
             />
             <TextField
               fullWidth
               required
-              label="Descricao"
+              helperText={`${form.description.length}/${DESCRIPTION_MAX}`}
+              label="Descrição"
               minRows={5}
               multiline
-              placeholder="Descreva o problema ou solicitacao com o maximo de detalhes possivel..."
+              placeholder="Descreva o problema ou solicitação com o máximo de detalhes possível..."
               value={form.description}
               onChange={(event) => updateForm("description", event.target.value)}
+              slotProps={{ htmlInput: { maxLength: DESCRIPTION_MAX } }}
             />
 
             <div className="grid gap-4 sm:grid-cols-3">
-              <FormControl required size="small">
-                <InputLabel>Departamento</InputLabel>
-                <Select label="Departamento" value={form.department} onChange={(event: SelectChangeEvent) => updateForm("department", event.target.value)}>
-                  {departmentOptions.map((department) => (
-                    <MenuItem key={department} value={department}>
-                      {department}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl required size="small">
-                <InputLabel>Prioridade</InputLabel>
-                <Select label="Prioridade" value={form.priority} onChange={(event: SelectChangeEvent) => updateForm("priority", event.target.value as TicketPriority)}>
-                  {priorityOptions.map((priority) => (
-                    <MenuItem key={priority.value} value={priority.value}>
-                      {priority.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl size="small">
-                <InputLabel>Responsavel</InputLabel>
-                <Select label="Responsavel" value={form.responsibleId} onChange={(event: SelectChangeEvent) => updateForm("responsibleId", event.target.value)}>
-                  <MenuItem value="">Sem responsavel</MenuItem>
-                  {users.map((item) => (
-                    <MenuItem key={item.id} value={item.id}>
-                      {item.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <SelectField
+                required
+                label="Departamento"
+                options={departmentOptions}
+                value={form.department}
+                onChange={(value) => updateForm("department", value as TicketDepartment)}
+              />
+              <SelectField
+                required
+                label="Prioridade"
+                options={priorityOptions}
+                value={form.priority}
+                onChange={(value) => updateForm("priority", value as TicketPriority)}
+              />
+              <SelectField
+                emptyLabel="Sem responsável"
+                label="Responsável"
+                options={users.map((item) => ({ value: item.id, label: item.name }))}
+                value={form.responsibleId}
+                onChange={(value) => updateForm("responsibleId", value)}
+              />
             </div>
           </div>
 
           <div className="mt-6 flex justify-end">
             <Button disabled={loading} startIcon={<Plus className="h-4 w-4" />} type="submit" variant="contained">
-              Criar Ticket
+              {loading ? "Criando..." : "Criar Ticket"}
             </Button>
           </div>
         </form>
@@ -158,14 +170,14 @@ export default function NewTicket() {
           <dl className="mt-5 space-y-4 text-sm">
             <div>
               <dt className="font-bold text-slate-500">Departamento</dt>
-              <dd className="mt-1 text-slate-900">{form.department || "-"}</dd>
+              <dd className="mt-1 text-slate-900">{departmentLabel(form.department)}</dd>
             </div>
             <div>
               <dt className="font-bold text-slate-500">Prioridade</dt>
               <dd className="mt-1 text-slate-900">{form.priority ? priorityLabel(form.priority) : "-"}</dd>
             </div>
             <div>
-              <dt className="font-bold text-slate-500">Responsavel</dt>
+              <dt className="font-bold text-slate-500">Responsável</dt>
               <dd className="mt-1 text-slate-900">{selectedResponsible?.name || "-"}</dd>
             </div>
           </dl>

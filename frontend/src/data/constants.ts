@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   Ticket,
 } from "lucide-react";
-import type { SelectOption, TicketPriority, TicketStatus, UserRole } from "../types";
+import type { SelectOption, TicketDepartment, TicketPriority, TicketStatus, UserRole } from "../types";
 
 export const statusOptions: SelectOption<TicketStatus>[] = [
   { value: "ABERTO", label: "Aberto", color: "blue", icon: Ticket },
@@ -26,7 +26,13 @@ export const priorityOptions: SelectOption<TicketPriority>[] = [
 
 export const roleOptions: SelectOption<UserRole>[] = [
   { value: "ADMIN", label: "Admin", icon: ShieldCheck },
-  { value: "USER", label: "User", icon: PauseCircle },
+  { value: "USER", label: "Usuário", icon: PauseCircle },
 ];
 
-export const departmentOptions = ["TI", "Financeiro", "RH", "Operações", "Outros"];
+export const departmentOptions: SelectOption<TicketDepartment>[] = [
+  { value: "TI", label: "TI" },
+  { value: "FINANCEIRO", label: "Financeiro" },
+  { value: "RH", label: "RH" },
+  { value: "OPERACOES", label: "Operações" },
+  { value: "OUTROS", label: "Outros" },
+];

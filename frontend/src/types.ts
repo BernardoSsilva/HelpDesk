@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 export type TicketStatus = "ABERTO" | "EM_ANDAMENTO" | "AGUARDANDO" | "RESOLVIDO" | "FECHADO";
 export type TicketPriority = "BAIXA" | "MEDIA" | "ALTA" | "CRITICA";
 export type UserRole = "ADMIN" | "USER";
+export type TicketDepartment = "TI" | "FINANCEIRO" | "RH" | "OPERACOES" | "OUTROS";
 export type TicketHistoryAction =
   | "TICKET_CRIADO"
   | "STATUS_ALTERADO"
@@ -10,6 +11,7 @@ export type TicketHistoryAction =
   | "TITULO_ALTERADO"
   | "DESCRICAO_ALTERADA"
   | "PRIORIDADE_ALTERADA"
+  | "DEPARTAMENTO_ALTERADO"
   | "COMENTARIO_ADICIONADO";
 
 export type User = {
@@ -27,6 +29,7 @@ export type Ticket = {
   description: string;
   status: TicketStatus;
   priority: TicketPriority;
+  department: TicketDepartment | null;
   requesterId: string;
   responsibleId: string | null;
   createdAt: string;
@@ -43,7 +46,9 @@ export type DashboardFilters = {
   status?: TicketStatus | "";
 };
 
+/** Id e nome de um usuário; é o que qualquer usuário autenticado pode consultar. */
 export type DashboardUserOption = Pick<User, "id" | "name">;
+export type DirectoryUser = DashboardUserOption;
 
 export type DashboardTicket = Ticket & {
   requester?: DashboardUserOption;
@@ -111,11 +116,11 @@ export type CreateTicketPayload = {
   title: string;
   description: string;
   priority: TicketPriority;
-  requesterId?: string;
+  department?: TicketDepartment | null;
   responsibleId?: string | null;
 };
 
-export type UpdateTicketPayload = Partial<Pick<Ticket, "title" | "description" | "priority" | "status" | "responsibleId">> & {
+export type UpdateTicketPayload = Partial<Pick<Ticket, "title" | "description" | "priority" | "status" | "department" | "responsibleId">> & {
   comment?: string;
 };
 
@@ -127,6 +132,11 @@ export type CreateUserPayload = {
 };
 
 export type UpdateUserPayload = Partial<CreateUserPayload>;
+
+export type ChangePasswordPayload = {
+  currentPassword: string;
+  newPassword: string;
+};
 
 export type SelectOption<T extends string = string> = {
   value: T;
