@@ -1,7 +1,8 @@
+import bcrypt from "bcrypt";
 import { UserEntity } from "../../../domain/entities/user.entity.js";
 import type { UserRoleEnum } from "../../../domain/enums/userRole.enum.js";
+import { ConflictError } from "../../../domain/errors/domain.error.js";
 import { UserRepository } from "../../repositories/users.repository.js";
-import bcrypt from "bcrypt";
 
 type Input = {
     userEmail: string;
@@ -17,7 +18,7 @@ export class CreateUserUseCase {
         const existingUser = await this.userRepository.findByEmail(input.userEmail)
 
         if (existingUser) {
-            throw new Error("User already exists")
+            throw new ConflictError("Já existe um usuário com este e-mail")
         }
 
         const hashedPassword = await bcrypt.hash(input.password, 10)

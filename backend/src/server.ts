@@ -1,30 +1,46 @@
-import express from 'express'
-import { dashboardRoutes } from './http/routes/dashboard.routes.js';
-import { ticketsRoutes } from './http/routes/tickets.routes.js';
-import { usersRoutes } from './http/routes/users.routes.js';
-import { swaggerRoutes } from './http/routes/swagger.routes.js';
-import cors from "cors";
+import { loadConfig } from "./config/env.js";
+import { createApp } from "./app.js";
+import { prisma } from "./infrastructure/prisma.client.js";
 
-const app = express();
-const port = Number(process.env.PORT) || 3000;
+const config = loadConfig();
 
-app.use(express.json())
-app.use(cors({
-    origin: process.env.FRONTEND_URL || "*",
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
-}))
+config.warnings.forEach((warning) => console.warn(`[config] ${warning}`));
 
-app.get('/', (req, res) => {
-    res.send(`Listening on port ${process.env.PORT}`);
+const app = createApp({
+    corsOrigins: config.corsOrigins,
+    trustProxy: config.trustProxy,
+    loginRateLimit: config.loginRateLimit,
 });
 
-app.use('/api', swaggerRoutes)
-app.use('/dashboard', dashboardRoutes)
-app.use('/users', usersRoutes)
-app.use('/tickets', ticketsRoutes)
+const server = app.listen(config.port, () => {
+    console.log(`app listening on port ${config.port} (${config.nodeEnv})`);
+});
 
-app.listen(port, () => {
-    console.log(`app listening on port ${port}`);
+let shuttingDown = false;
+
+// Encerra com elegância: para de aceitar conexões, termina as em andamento e fecha o banco.
+async function shutdown(signal: string) {
+    if (shuttingDown) {
+        return;
+    }
+
+    shuttingDown = true;
+    console.log(`${signal} recebido, encerrando...`);
+
+    const forceExit = setTimeout(() => {
+        console.error("Encerramento forçado após timeout");
+        process.exit(1);
+    }, 10_000);
+    forceExit.unref();
+
+    server.close(async () => {
+        await prisma.$disconnect();
+        process.exit(0);
+    });
+}
+
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("unhandledRejection", (reason) => {
+    console.error("unhandledRejection:", reason);
 });
