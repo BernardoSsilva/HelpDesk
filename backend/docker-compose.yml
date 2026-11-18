@@ -1,3 +1,4 @@
+# Somente o PostgreSQL, para desenvolvimento local (a API roda na sua máquina com `npm run dev`).
 services:
   postgres:
     image: postgres:16-alpine
@@ -8,7 +9,7 @@ services:
       POSTGRES_USER: ticket_user
       POSTGRES_PASSWORD: ticket_password
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
